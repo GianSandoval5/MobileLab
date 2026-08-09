@@ -40,7 +40,14 @@ The API Sandbox remains SDK-free; these packages add only advanced observability
 
 ## 0.4 — Native and Capacitor integrations
 
-Optional Kotlin, Swift, and Capacitor packages plus equivalent example applications consuming the same sandbox and scenarios.
+- [x] extend protocol v1 validation to Android, iOS, and Capacitor without adding framework dependencies to Core
+- [x] optional `mobilelab-android` Kotlin/JVM-compatible SDK with HTTP transport, lifecycle, marker, and assertion hooks
+- [x] optional `MobileLabKit` Swift Package with async HTTP transport and UIKit lifecycle integration
+- [x] optional `@mobilelab/capacitor` package with Capacitor App lifecycle integration
+- [x] package-level tests and integration examples consuming the same sandbox and `app_event` scenarios
+- [x] pinned Java, Swift, and Node SDK CI plus version-checked GitHub Release archives
+
+All three SDKs remain transport adapters around protocol v1. Applications can continue to use the API Sandbox without installing them.
 
 ## 0.5 — Record and replay
 

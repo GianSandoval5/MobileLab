@@ -13,7 +13,9 @@ The first release is a modular monolith distributed as one Go binary. It contain
 
 Framework SDKs remain optional. A Flutter, React Native, native Android, native iOS, or Capacitor application can use the HTTP sandbox without modifying application code beyond choosing the local endpoint.
 
-For 0.3, optional SDKs share a versioned HTTP event contract owned by the Core. Framework packages translate their native lifecycle and assertion APIs into that contract; they do not become device adapters and the Core never branches on application framework during scenario execution. Accepted events are validated, sanitized before persistence, and published through the existing typed event bus.
+From 0.3 onward, optional SDKs share a versioned HTTP event contract owned by the Core. Framework packages translate their native lifecycle and assertion APIs into that contract; they do not become device adapters and the Core never branches on application framework during scenario execution. Accepted events are validated, sanitized before persistence, and published through the existing typed event bus.
+
+For 0.4, Android, iOS, and Capacitor use the same protocol v1 endpoint and domain event model as Flutter and React Native. Supported framework identifiers are centralized in the domain instead of being repeated across transports. Native packages use platform HTTP primitives, expose injectable transports for deterministic tests, and add lifecycle helpers at their own boundary. The Kotlin client stays Android-compatible without requiring Android classes in its core artifact; `MobileLabKit` conditionally layers UIKit observation over a Foundation client; the Capacitor package accepts the App plugin through a narrow structural interface so installing the SDK does not add a second Capacitor runtime.
 
 ## Dependency rule
 
@@ -45,6 +47,8 @@ internal/detect/            project/tool detectors
 internal/reporting/         terminal and JSON reporters
 internal/storage/           repository implementations
 internal/dashboard/         embedded local dashboard and typed events
+sdk/                        optional framework clients; never imported by Core
+examples/sdk-events/        shared sandbox and framework-neutral event scenarios
 pkg/mobilelab/              deliberately small public extension API
 schemas/                    public configuration/scenario schemas
 examples/                   runnable samples, introduced incrementally
@@ -118,6 +122,9 @@ Every new dependency must remove meaningful implementation risk and be actively 
 5. **Strict input at boundaries:** unknown fields, invalid methods/statuses/ports, unsafe fixture paths, and malformed scenarios fail before the environment starts.
 6. **Temporary faults are runtime state:** latency/error/auth commands are reversible and do not silently mutate project configuration.
 7. **Honest capabilities:** partial or unavailable device features are explicit domain results, not no-op success.
+8. **One SDK contract, thin platform clients:** framework packages own lifecycle wiring and transport ergonomics while validation, persistence, redaction, and scenario semantics remain in Core.
+9. **Injectable SDK transports:** each package separates event construction from network I/O so its contract can be tested without a running simulator, emulator, or Core process.
+10. **Coordinated SDK release versions:** framework packages follow the MobileLab release tag even when a release only broadens adapters; GitHub assets remain traceable to one protocol-compatible source revision.
 
 ## Incremental delivery plan
 

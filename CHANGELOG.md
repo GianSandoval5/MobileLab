@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-09
+
+### Added
+
+- Protocol v1 support for `android`, `ios`, and `capacitor` app events through the same sanitized Core ingestion, persistence, realtime, and scenario paths.
+- Optional `mobilelab-android` Kotlin SDK with an Android-compatible standard-library HTTP transport, injectable transport, asynchronous lifecycle helper, tests, and lifecycle example.
+- Optional `MobileLabKit` Swift Package with typed JSON attributes, async `URLSession` transport, injectable transport, deduplicating lifecycle actor, UIKit notification integration, tests, and SwiftUI example.
+- Optional `@mobilelab/capacitor` TypeScript SDK with Fetch transport, structural Capacitor App integration, race-safe async attach/detach, tests, and example.
+- Shared sandbox and equivalent `app_event` scenario examples for native Android, native iOS, and Capacitor applications.
+- Java 17, Swift, and Node 22 SDK CI plus version-checked Android JAR, Swift source archive, and Capacitor package assets in GitHub Releases.
+
+### Changed
+
+- Centralized supported SDK framework validation in the domain while keeping scenario execution framework-neutral.
+- Coordinated Flutter and React Native package versions with the MobileLab v0.4 release; their protocol v1 APIs remain compatible.
+
 ## [0.3.0] - 2026-08-09
 
 ### Added
@@ -68,7 +84,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - SQLite retention/pruning and JUnit/HTML reports are not yet available.
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
-[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/GianSandoval5/MobileLab/releases/tag/v0.1.0

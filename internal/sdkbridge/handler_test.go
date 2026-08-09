@@ -60,6 +60,29 @@ func TestHandlerAcceptsSanitizesPersistsAndPublishesEvent(t *testing.T) {
 	}
 }
 
+func TestHandlerAcceptsEverySupportedFramework(t *testing.T) {
+	frameworks := []domain.AppFramework{
+		domain.FrameworkFlutter,
+		domain.FrameworkReactNative,
+		domain.FrameworkAndroid,
+		domain.FrameworkIOS,
+		domain.FrameworkCapacitor,
+	}
+	for _, framework := range frameworks {
+		t.Run(string(framework), func(t *testing.T) {
+			repository := &memoryEvents{}
+			body := `{"protocolVersion":1,"framework":"` + string(framework) + `","kind":"marker","name":"ready"}`
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/__mobilelab/sdk/events", strings.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			(Handler{Repository: repository}).ServeHTTP(response, request)
+			if response.Code != http.StatusAccepted || len(repository.saved) != 1 {
+				t.Fatalf("status=%d events=%d body=%q", response.Code, len(repository.saved), response.Body.String())
+			}
+		})
+	}
+}
+
 func TestHandlerRejectsInvalidContract(t *testing.T) {
 	tests := []string{
 		`{"protocolVersion":2,"framework":"flutter","kind":"marker","name":"ready"}`,

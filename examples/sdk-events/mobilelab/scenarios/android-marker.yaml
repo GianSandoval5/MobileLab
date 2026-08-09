@@ -1,0 +1,6 @@
+name: Android example marker
+expect:
+  - app_event:
+      framework: android
+      kind: marker
+      name: example.clicked

@@ -59,3 +59,16 @@ func TestYAMLParserRequiresDeepLinkValue(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestYAMLParserAcceptsNativeAndCapacitorAppEvents(t *testing.T) {
+	for _, framework := range []string{"android", "ios", "capacitor"} {
+		input := []byte("name: test\nexpect:\n  - app_event: {framework: " + framework + ", kind: marker, name: ready}\n")
+		definition, err := (YAMLParser{}).Parse(input)
+		if err != nil {
+			t.Fatalf("framework %s: %v", framework, err)
+		}
+		if got := string(definition.Assertions[0].AppEvent.Framework); got != framework {
+			t.Fatalf("framework=%q, want %q", got, framework)
+		}
+	}
+}

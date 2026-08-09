@@ -45,14 +45,18 @@ func Run(root string) []Check {
 	checks = append(checks,
 		tool("Frameworks", "Flutter", "flutter", "Optional; required only for Flutter project tooling."),
 		nodeTool(),
+		tool("Frameworks", "Java", "java", "Optional; Java 17 is required only to build the Android SDK."),
 	)
+	if goruntime.GOOS == "darwin" {
+		checks = append(checks, tool("Frameworks", "Swift", "swift", "Optional; Swift is required only to build MobileLabKit."))
+	}
 	return checks
 }
 
 func nodeTool() Check {
 	path, err := exec.LookPath("node")
 	if err != nil {
-		return Check{Group: "Frameworks", Name: "Node.js", Level: Warning, Message: "Optional; Node.js 18+ is required only for React Native SDK tooling."}
+		return Check{Group: "Frameworks", Name: "Node.js", Level: Warning, Message: "Optional; Node.js 18+ is required only for React Native and Capacitor SDK tooling."}
 	}
 	output, err := exec.Command(path, "--version").Output()
 	if err != nil {
@@ -61,7 +65,7 @@ func nodeTool() Check {
 	version := strings.TrimSpace(string(output))
 	major, err := nodeMajor(version)
 	if err != nil || major < 18 {
-		return Check{Group: "Frameworks", Name: "Node.js", Level: Warning, Message: fmt.Sprintf("%s; Node.js 18+ is required for React Native SDK tooling", version)}
+		return Check{Group: "Frameworks", Name: "Node.js", Level: Warning, Message: fmt.Sprintf("%s; Node.js 18+ is required for React Native and Capacitor SDK tooling", version)}
 	}
 	return Check{Group: "Frameworks", Name: "Node.js", Level: OK, Message: fmt.Sprintf("%s (%s)", version, path)}
 }

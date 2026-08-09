@@ -12,7 +12,20 @@ type AppFramework string
 const (
 	FrameworkFlutter     AppFramework = "flutter"
 	FrameworkReactNative AppFramework = "react-native"
+	FrameworkAndroid     AppFramework = "android"
+	FrameworkIOS         AppFramework = "ios"
+	FrameworkCapacitor   AppFramework = "capacitor"
+	AppFrameworkChoices               = "flutter, react-native, android, ios, or capacitor"
 )
+
+func (framework AppFramework) Valid() bool {
+	switch framework {
+	case FrameworkFlutter, FrameworkReactNative, FrameworkAndroid, FrameworkIOS, FrameworkCapacitor:
+		return true
+	default:
+		return false
+	}
+}
 
 type AppEventKind string
 

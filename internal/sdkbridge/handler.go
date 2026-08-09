@@ -93,10 +93,8 @@ func validate(event *domain.AppEvent) error {
 	if event.ProtocolVersion != domain.AppEventProtocolVersion {
 		return fmt.Errorf("protocolVersion must be %d", domain.AppEventProtocolVersion)
 	}
-	switch event.Framework {
-	case domain.FrameworkFlutter, domain.FrameworkReactNative:
-	default:
-		return fmt.Errorf("framework must be flutter or react-native")
+	if !event.Framework.Valid() {
+		return fmt.Errorf("framework must be %s", domain.AppFrameworkChoices)
 	}
 	switch event.Kind {
 	case domain.AppEventLifecycle, domain.AppEventMarker:

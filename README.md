@@ -2,7 +2,7 @@
 
 MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
 
-> Status: **v0.3.0** Flutter and React Native integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
+> Status: **v0.4.0** optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
 
 ## Why MobileLab?
 
@@ -163,16 +163,21 @@ The fake platform is intended for engine/CI tests. Assertions poll only requests
 
 `app_event` assertions likewise consider only events received after the scenario starts. `framework` is optional; `kind` is `lifecycle`, `marker`, or `assertion`. When `passed` is omitted for an assertion, MobileLab requires the SDK assertion to report `true`.
 
-## Optional Flutter and React Native SDKs
+## Optional framework SDKs
 
-The v0.3 SDKs share protocol v1 and send lifecycle, marker, and assertion events to `POST /__mobilelab/sdk/events`:
+The optional SDKs share protocol v1 and send lifecycle, marker, and assertion events to `POST /__mobilelab/sdk/events`:
 
 - Flutter: [`mobilelab_flutter`](sdk/flutter/mobilelab_flutter/README.md)
 - React Native: [`@mobilelab/react-native`](sdk/react-native/README.md)
+- Android/Kotlin: [`mobilelab-android`](sdk/android/mobilelab-android/README.md)
+- iOS/Swift: [`MobileLabKit`](sdk/ios/MobileLabKit/README.md)
+- Capacitor: [`@mobilelab/capacitor`](sdk/capacitor/README.md)
 
-Both expose `lifecycle`, `marker`, `assertThat`, and an attachable lifecycle reporter. Events are strictly validated, limited to 64 KiB, sanitized, persisted in SQLite, streamed to the dashboard, and available to scenario assertions. SDK transport failures never crash automatic lifecycle callbacks.
+All expose `lifecycle`, `marker`, `assertThat`, and lifecycle reporting suited to their platform. Events are strictly validated, limited to 64 KiB, sanitized, persisted in SQLite, streamed to the dashboard, and available to scenario assertions. SDK transport failures are observable and automatic lifecycle callbacks do not crash the application.
 
 Android Emulator applications normally use `http://10.0.2.2:4566`; iOS Simulator normally uses `http://127.0.0.1:4566`. A physical device requires an explicitly reachable trusted-network bind. Development builds may also need Android cleartext HTTP or iOS local-network/ATS configuration. Do not enable those exceptions in production builds.
+
+The [shared SDK event example](examples/sdk-events/README.md) supplies one sandbox and equivalent Android, iOS, and Capacitor marker scenarios.
 
 ## Android and iOS
 
@@ -221,15 +226,15 @@ make lint
 make build
 ```
 
-Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, SDK protocol ingestion, and scenario execution. An integration test opens a temporary loopback server and verifies start/status/app events/API fault/reset/stop. Core CI runs on Linux, macOS, and Windows; separate SDK CI pins Flutter 3.44.4 and Node 22.23.2.
+Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, SDK protocol ingestion, and scenario execution. An integration test opens a temporary loopback server and verifies start/status/app events/API fault/reset/stop. Core CI runs on Linux, macOS, and Windows; separate SDK CI pins Flutter 3.44.4, Node 22.23.2, and Java 17, and validates the Swift Package on macOS.
 
 ## Current limitations
 
 - Scenario device selection is first-ready unless `--device` is supplied; direct device, deep-link, location, network, and push commands accept explicit selectors.
 - Android Emulator Ethernet/cellular latency and speed shaping is partial; reliable offline mode and iOS network conditioning are unavailable. Local push is limited to booted iOS Simulators with supported Xcode tooling.
 - OpenAPI import does not yet support external references, callbacks, GraphQL, gRPC, or sophisticated example generation.
-- Flutter and React Native integrations are optional observability SDKs; native Android/iOS and Capacitor SDKs begin in v0.4.
-- SQLite retention/pruning policy and migrations beyond schema v1 are not implemented yet.
+- All framework integrations are optional observability SDKs; they are not required for the API Sandbox.
+- SQLite retention/pruning policy is not implemented yet; schema migrations currently cover versions 1 and 2.
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 

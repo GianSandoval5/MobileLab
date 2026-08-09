@@ -1,0 +1,45 @@
+{
+  "name": "@mobilelab/capacitor",
+  "version": "0.4.0",
+  "description": "Optional Capacitor lifecycle, marker, and assertion hooks for MobileLab.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "example",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GianSandoval5/MobileLab.git",
+    "directory": "sdk/capacitor"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mobilelab",
+    "capacitor",
+    "testing",
+    "development-tools"
+  ],
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3"
+  }
+}

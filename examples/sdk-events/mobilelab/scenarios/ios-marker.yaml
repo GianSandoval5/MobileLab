@@ -1,0 +1,6 @@
+name: iOS example marker
+expect:
+  - app_event:
+      framework: ios
+      kind: marker
+      name: example.clicked

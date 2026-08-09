@@ -159,8 +159,8 @@ func (d ScenarioDefinition) Validate() error {
 			default:
 				return fmt.Errorf("assertions[%d].app_event kind must be lifecycle, marker, or assertion", index)
 			}
-			if expectation.Framework != "" && expectation.Framework != FrameworkFlutter && expectation.Framework != FrameworkReactNative {
-				return fmt.Errorf("assertions[%d].app_event framework must be flutter or react-native", index)
+			if expectation.Framework != "" && !expectation.Framework.Valid() {
+				return fmt.Errorf("assertions[%d].app_event framework must be %s", index, AppFrameworkChoices)
 			}
 			if expectation.Kind != AppEventAssertion && expectation.Passed != nil {
 				return fmt.Errorf("assertions[%d].app_event passed is valid only for assertion events", index)

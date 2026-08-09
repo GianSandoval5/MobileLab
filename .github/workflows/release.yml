@@ -79,18 +79,37 @@ jobs:
         with:
           node-version: '22.23.2'
           cache: npm
-          cache-dependency-path: sdk/react-native/package-lock.json
+          cache-dependency-path: |
+            sdk/react-native/package-lock.json
+            sdk/capacitor/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            sdk/android/mobilelab-android/*.gradle.kts
+            sdk/android/mobilelab-android/gradle/wrapper/gradle-wrapper.properties
       - name: Build SDK packages
         shell: bash
         run: |
           mkdir -p dist
           version="${GITHUB_REF_NAME#v}"
           test "$(node -p "require('./sdk/react-native/package.json').version")" = "$version"
+          test "$(node -p "require('./sdk/capacitor/package.json').version")" = "$version"
           grep -qx "version: $version" sdk/flutter/mobilelab_flutter/pubspec.yaml
+          grep -qx "version = \"$version\"" sdk/android/mobilelab-android/build.gradle.kts
+          grep -q "mobileLabKitVersion = \"$version\"" sdk/ios/MobileLabKit/Sources/MobileLabKit/MobileLabKit.swift
           npm ci --prefix sdk/react-native
           npm run build --prefix sdk/react-native
           npm pack ./sdk/react-native --pack-destination dist
+          npm ci --prefix sdk/capacitor
+          npm run build --prefix sdk/capacitor
+          npm pack ./sdk/capacitor --pack-destination dist
+          sdk/android/mobilelab-android/gradlew --no-daemon -p sdk/android/mobilelab-android test jar
+          cp "sdk/android/mobilelab-android/build/libs/mobilelab-android-${version}.jar" dist/
           git archive --format=tar.gz --prefix=mobilelab_flutter/ --output="dist/mobilelab_flutter-${version}.tar.gz" HEAD:sdk/flutter/mobilelab_flutter
+          git archive --format=tar.gz --prefix=MobileLabKit/ --output="dist/mobilelab-kit-${version}.tar.gz" HEAD:sdk/ios/MobileLabKit
       - uses: actions/upload-artifact@v7
         with:
           name: mobilelab-sdks
@@ -107,7 +126,7 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Generate checksums
-        run: cd dist && sha256sum mobilelab-* > SHA256SUMS
+        run: cd dist && sha256sum * > SHA256SUMS
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,6 +1,6 @@
 {
   "name": "@mobilelab/react-native",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Optional React Native lifecycle, marker, and assertion hooks for MobileLab.",
   "type": "module",
   "main": "./dist/index.js",
@@ -15,6 +15,7 @@
     "dist",
     "example",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {

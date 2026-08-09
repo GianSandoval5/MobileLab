@@ -1,0 +1,21 @@
+project:
+  name: sdk-events
+server:
+  host: 127.0.0.1
+  port: 4566
+dashboard:
+  enabled: true
+sandbox:
+  latency: 0
+  error_rate: 0
+auth:
+  enabled: false
+device:
+  auto_detect: false
+endpoints:
+  - path: /api/health
+    method: GET
+    response:
+      status: 200
+      body:
+        status: ok

@@ -1,0 +1,6 @@
+name: Capacitor example marker
+expect:
+  - app_event:
+      framework: capacitor
+      kind: marker
+      name: example.clicked
