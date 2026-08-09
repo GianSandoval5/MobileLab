@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-09
+
+### Added
+
+- Recursive scenario-directory suites with strict all-files preflight, lexical execution order, aggregate results, and continued execution after individual failures.
+- Standards-compatible JUnit XML reports and standalone responsive HTML reports with escaped scenario names, checks, errors, and messages.
+- `--timeout` for bounded CI assertions plus automatic report-output directory creation.
+- Executable headless Core/fake-device example producing JUnit, HTML, logs, and response artifacts.
+- Copy-ready GitHub Actions, GitLab CI, Azure Pipelines, and Jenkins definitions with native test/artifact publication and honest provider-specific retention configuration.
+- A live GitHub Actions headless-reporting job that exercises both new report formats end to end.
+
+### Changed
+
+- `mobilelab run` now accepts either one scenario file or a directory and supports `terminal`, `json`, `junit`, and `html` report formats.
+- Coordinated all optional SDK package versions at 0.6.0 without changing protocol v1.
+
 ## [0.5.0] - 2026-08-09
 
 ### Added
@@ -101,6 +117,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
 [Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.5.0...HEAD
+[0.6.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.2.0...v0.3.0

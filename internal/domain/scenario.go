@@ -87,6 +87,41 @@ type ScenarioResult struct {
 	Error      string          `json:"error,omitempty"`
 }
 
+type ScenarioSuiteResult struct {
+	Name       string           `json:"name"`
+	Passed     bool             `json:"passed"`
+	StartedAt  time.Time        `json:"started_at"`
+	DurationMS int64            `json:"duration_ms"`
+	Summary    ScenarioSummary  `json:"summary"`
+	Scenarios  []ScenarioResult `json:"scenarios"`
+}
+
+type ScenarioSummary struct {
+	Total  int `json:"total"`
+	Passed int `json:"passed"`
+	Failed int `json:"failed"`
+}
+
+func NewScenarioSuiteResult(name string, startedAt time.Time, durationMS int64, results []ScenarioResult) ScenarioSuiteResult {
+	suite := ScenarioSuiteResult{
+		Name:       name,
+		Passed:     len(results) > 0,
+		StartedAt:  startedAt,
+		DurationMS: durationMS,
+		Scenarios:  append([]ScenarioResult(nil), results...),
+	}
+	suite.Summary.Total = len(results)
+	for _, result := range results {
+		if result.Passed {
+			suite.Summary.Passed++
+		} else {
+			suite.Summary.Failed++
+			suite.Passed = false
+		}
+	}
+	return suite
+}
+
 type ScenarioCheck struct {
 	Name    string `json:"name"`
 	Passed  bool   `json:"passed"`

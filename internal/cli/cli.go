@@ -587,69 +587,198 @@ func parseDeviceFlags(args []string, allowAppID, allowJSON bool) (deviceSelectio
 }
 
 func (r Runner) runScenario(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: mobilelab run <scenario.yaml> [--platform android|ios|fake] [--device id] [--app-id id] [--report terminal|json] [--output path]")
+	options, err := parseRunOptions(args)
+	if err != nil {
+		return err
 	}
-	path := args[0]
-	options := map[string]string{"report": "terminal"}
+	inputs, err := loadScenarioInputs(options.Path)
+	if err != nil {
+		return err
+	}
+	inputInfo, err := os.Stat(options.Path)
+	if err != nil {
+		return fmt.Errorf("inspect scenario input %q: %w", options.Path, err)
+	}
+	options.Directory = inputInfo.IsDir()
+	started := time.Now().UTC()
+	results := make([]domain.ScenarioResult, 0, len(inputs))
+	for _, input := range inputs {
+		adapter, deviceID, err := r.scenarioDevice(ctx, input.Definition, options.Platform, options.DeviceID)
+		if err != nil {
+			results = append(results, domain.ScenarioResult{
+				Name:      input.Definition.Name,
+				StartedAt: time.Now().UTC(),
+				Error:     fmt.Sprintf("prepare scenario %q: %v", input.Path, err),
+			})
+			continue
+		}
+		runner := scenario.Runner{
+			Environment: runtime.Client{ConfigPath: r.configPath()},
+			Device:      adapter,
+			Runs:        runtime.Client{ConfigPath: r.configPath()},
+		}
+		result, _ := runner.Run(ctx, input.Definition, domain.ScenarioRunOptions{
+			DeviceID: deviceID,
+			AppID:    options.AppID,
+			Timeout:  options.Timeout,
+		})
+		results = append(results, result)
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	suiteName := filepath.Base(filepath.Clean(options.Path))
+	if len(inputs) == 1 {
+		suiteName = inputs[0].Definition.Name
+	}
+	suite := domain.NewScenarioSuiteResult(suiteName, started, time.Since(started).Milliseconds(), results)
+	if err := r.writeScenarioReport(options, suite); err != nil {
+		return err
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if !suite.Passed {
+		return fmt.Errorf("scenario suite failed: %d of %d scenario(s) failed", suite.Summary.Failed, suite.Summary.Total)
+	}
+	return nil
+}
+
+type runOptions struct {
+	Path      string
+	Platform  string
+	DeviceID  string
+	AppID     string
+	Report    reporting.Format
+	Output    string
+	Timeout   time.Duration
+	Directory bool
+}
+
+func parseRunOptions(args []string) (runOptions, error) {
+	if len(args) == 0 {
+		return runOptions{}, fmt.Errorf("usage: mobilelab run <scenario.yaml|directory> [--platform android|ios|fake] [--device id] [--app-id id] [--timeout 10s] [--report terminal|json|junit|html] [--output path]")
+	}
+	options := runOptions{Path: args[0], Report: reporting.FormatTerminal}
 	for index := 1; index < len(args); index++ {
 		arg := args[index]
 		if !strings.HasPrefix(arg, "--") || index+1 >= len(args) {
-			return fmt.Errorf("option %q requires a value", arg)
+			return runOptions{}, fmt.Errorf("option %q requires a value", arg)
 		}
-		key := strings.TrimPrefix(arg, "--")
-		switch key {
-		case "platform", "device", "app-id", "report", "output":
-		default:
-			return fmt.Errorf("unknown run option %q", arg)
-		}
+		value := args[index+1]
 		index++
-		options[key] = args[index]
+		switch arg {
+		case "--platform":
+			if value != "android" && value != "ios" && value != "fake" {
+				return runOptions{}, fmt.Errorf("platform must be android, ios, or fake")
+			}
+			options.Platform = value
+		case "--device":
+			options.DeviceID = value
+		case "--app-id":
+			options.AppID = value
+		case "--report":
+			options.Report = reporting.Format(strings.ToLower(value))
+		case "--output":
+			options.Output = value
+		case "--timeout":
+			timeout, err := time.ParseDuration(value)
+			if err != nil || timeout <= 0 || timeout > time.Hour {
+				return runOptions{}, fmt.Errorf("timeout must be greater than zero and no more than 1h")
+			}
+			options.Timeout = timeout
+		default:
+			return runOptions{}, fmt.Errorf("unknown run option %q", arg)
+		}
 	}
-	if options["report"] != "terminal" && options["report"] != "json" {
-		return fmt.Errorf("report must be terminal or json")
+	if !options.Report.Valid() {
+		return runOptions{}, fmt.Errorf("report must be terminal, json, junit, or html")
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read scenario %q: %w", path, err)
-	}
-	definition, err := (scenario.YAMLParser{}).Parse(data)
-	if err != nil {
-		return err
-	}
-	adapter, deviceID, err := r.scenarioDevice(ctx, definition, options["platform"], options["device"])
-	if err != nil {
-		return err
-	}
-	runner := scenario.Runner{
-		Environment: runtime.Client{ConfigPath: r.configPath()},
-		Device:      adapter,
-		Runs:        runtime.Client{ConfigPath: r.configPath()},
-	}
-	result, runErr := runner.Run(ctx, definition, domain.ScenarioRunOptions{DeviceID: deviceID, AppID: options["app-id"]})
+	return options, nil
+}
 
-	writer := r.Out
-	var outputFile *os.File
-	if outputPath := options["output"]; outputPath != "" {
-		outputFile, err = os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+type scenarioInput struct {
+	Path       string
+	Definition domain.ScenarioDefinition
+}
+
+func loadScenarioInputs(path string) ([]scenarioInput, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("inspect scenario input %q: %w", path, err)
+	}
+	paths := []string{path}
+	if info.IsDir() {
+		paths = nil
+		err = filepath.WalkDir(path, func(candidate string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			extension := strings.ToLower(filepath.Ext(entry.Name()))
+			if extension == ".yaml" || extension == ".yml" {
+				paths = append(paths, candidate)
+			}
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("create report %q: %w", outputPath, err)
+			return nil, fmt.Errorf("discover scenarios in %q: %w", path, err)
 		}
-		defer outputFile.Close()
-		writer = outputFile
-	}
-	if options["report"] == "json" {
-		if err := reporting.WriteScenarioJSON(writer, result); err != nil {
-			return fmt.Errorf("write JSON report: %w", err)
+		sort.Strings(paths)
+		if len(paths) == 0 {
+			return nil, fmt.Errorf("scenario directory %q contains no .yaml or .yml files", path)
 		}
-	} else {
-		reporting.WriteScenarioTerminal(writer, result)
+	} else if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("scenario input %q must be a regular file or directory", path)
 	}
-	if runErr != nil {
-		return runErr
+	inputs := make([]scenarioInput, 0, len(paths))
+	for _, scenarioPath := range paths {
+		data, err := os.ReadFile(scenarioPath)
+		if err != nil {
+			return nil, fmt.Errorf("read scenario %q: %w", scenarioPath, err)
+		}
+		definition, err := (scenario.YAMLParser{}).Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("scenario %q: %w", scenarioPath, err)
+		}
+		inputs = append(inputs, scenarioInput{Path: scenarioPath, Definition: definition})
 	}
-	if !result.Passed {
-		return fmt.Errorf("scenario assertions failed")
+	return inputs, nil
+}
+
+func (r Runner) writeScenarioReport(options runOptions, suite domain.ScenarioSuiteResult) error {
+	reporter, err := reporting.NewSuiteReporter(options.Report)
+	if err != nil {
+		return err
+	}
+	write := func(writer io.Writer) error {
+		if options.Report == reporting.FormatJSON && len(suite.Scenarios) == 1 && !options.Directory {
+			return reporting.WriteScenarioJSON(writer, suite.Scenarios[0])
+		}
+		return reporter.Write(writer, suite)
+	}
+	if options.Output == "" {
+		if err := write(r.Out); err != nil {
+			return fmt.Errorf("write %s report: %w", options.Report, err)
+		}
+		return nil
+	}
+	parent := filepath.Dir(options.Output)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return fmt.Errorf("create report directory %q: %w", parent, err)
+	}
+	output, err := os.OpenFile(options.Output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return fmt.Errorf("create report %q: %w", options.Output, err)
+	}
+	if err := write(output); err != nil {
+		_ = output.Close()
+		return fmt.Errorf("write %s report: %w", options.Report, err)
+	}
+	if err := output.Close(); err != nil {
+		return fmt.Errorf("close report %q: %w", options.Output, err)
 	}
 	return nil
 }
@@ -919,7 +1048,7 @@ Available commands:
   network    Shape supported emulator network characteristics
   push       Send a configured local push where supported
   device     List/select devices and control app/device lifecycle
-  run        Execute a portable YAML scenario and report PASS/FAIL
+  run        Execute a scenario file/directory with terminal, JSON, JUnit, or HTML reports
   scenario   List, run, and inspect persistent scenario history
   record     Capture app traffic/actions into a portable YAML scenario
   replay     Execute a recorded scenario through the standard runner

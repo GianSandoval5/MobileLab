@@ -2,7 +2,7 @@
 
 MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
 
-> Status: **v0.5.0** record/replay workflows plus optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
+> Status: **v0.6.0** CI suites and JUnit/HTML reporting plus record/replay and optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
 
 ## Why MobileLab?
 
@@ -159,6 +159,23 @@ mobilelab scenario run payment --platform android --app-id com.example.app
 mobilelab scenario history --json
 ```
 
+`run` also accepts a directory, recursively preflights every `.yaml`/`.yml` file, and executes the lexically sorted suite even when an earlier scenario fails:
+
+```sh
+mobilelab run mobilelab/scenarios \
+  --platform fake \
+  --timeout 10s \
+  --report junit \
+  --output artifacts/mobilelab-junit.xml
+
+mobilelab run mobilelab/scenarios \
+  --platform fake \
+  --report html \
+  --output artifacts/mobilelab-report.html
+```
+
+Supported formats are `terminal`, `json`, `junit`, and `html`. JUnit emits one test suite per scenario and one test case per executed check. HTML is a standalone, responsive file with escaped scenario content and no remote assets. Output parent directories are created automatically. A suite returns a non-zero exit code if any scenario fails, while still reporting every scenario that could run.
+
 The fake platform is intended for engine/CI tests. Assertions poll only requests observed after the run begins. The runner resets temporary faults before and after every run.
 
 `app_event` assertions likewise consider only events received after the scenario starts. `framework` is optional; `kind` is `lifecycle`, `marker`, or `assertion`. When `passed` is omitted for an assertion, MobileLab requires the SDK assertion to report `true`.
@@ -241,7 +258,9 @@ make lint
 make build
 ```
 
-Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, SDK protocol ingestion, and scenario execution. An integration test opens a temporary loopback server and verifies start/status/app events/API fault/reset/stop. Core CI runs on Linux, macOS, and Windows; separate SDK CI pins Flutter 3.44.4, Node 22.23.2, and Java 17, and validates the Swift Package on macOS.
+Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, SDK protocol ingestion, scenario execution, suite aggregation, and safe report rendering. Integration tests open temporary loopback servers for lifecycle and recorder behavior. Core CI runs on Linux, macOS, and Windows; separate SDK CI pins Flutter 3.44.4, Node 22.23.2, and Java 17, and validates the Swift Package on macOS.
+
+The executable [CI example](examples/ci/README.md) starts MobileLab with `--headless`, runs a directory through the fake adapter, and publishes JUnit XML, standalone HTML, the Core log, and a response fixture. Copy-ready definitions cover GitHub Actions, GitLab CI, Azure Pipelines, and Jenkins with provider-native test/artifact publication; retention is explicit where the provider exposes it in pipeline code and documented as an Azure project setting otherwise. Real emulators/simulators remain opt-in: provision a booted device on the runner, then replace `--platform fake` and supply its explicit device/application identifiers.
 
 ## Current limitations
 

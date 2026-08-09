@@ -1,0 +1,29 @@
+pipeline {
+  agent any
+
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+  }
+
+  stages {
+    stage('Build MobileLab') {
+      steps {
+        sh 'go build -o bin/mobilelab ./cmd/mobilelab'
+      }
+    }
+    stage('Run scenarios') {
+      steps {
+        dir('examples/ci') {
+          sh 'MOBILELAB_BIN=../../bin/mobilelab ./run.sh'
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: 'examples/ci/artifacts/mobilelab-junit.xml'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'examples/ci/artifacts/**', fingerprint: true
+    }
+  }
+}

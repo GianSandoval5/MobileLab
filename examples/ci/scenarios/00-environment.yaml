@@ -1,0 +1,4 @@
+name: Headless environment controls
+steps:
+  - set_latency: "25"
+  - reset_api

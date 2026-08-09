@@ -19,6 +19,8 @@ For 0.4, Android, iOS, and Capacitor use the same protocol v1 endpoint and domai
 
 For 0.5, recording is an application service behind a typed domain port. Core owns at most one active recording and accepts already-sanitized HTTP exchanges, runtime environment mutations, and successful deep links from their existing adapters. Stopping a recording returns an immutable ordered event stream; a separate generator converts it to the public scenario model and writes YAML atomically. Generated HTTP synchronization steps preserve event order across later environment mutations, while final request/response assertions retain the readable result report. Replay remains an alias over the existing scenario runner, so recorded scenarios do not introduce a second execution engine.
 
+For 0.6, a scenario suite is a domain aggregate over one or more ordinary scenario results. Directory discovery and strict preflight parsing stay in the CLI adapter; execution remains sequential through the same scenario runner and preserves per-scenario environment isolation. Reporting adapters consume the completed suite without reaching into the runtime: terminal and JSON remain available, JUnit XML maps checks to CI test cases, and a standalone HTML adapter renders escaped user-controlled content with no external assets or JavaScript. Provider examples own artifact retention because retention is a CI policy, not Core persistence.
+
 ## Dependency rule
 
 Dependencies point inward:
@@ -46,11 +48,12 @@ internal/sandbox/           HTTP mock/auth server and runtime fault controls
 internal/scenario/          YAML parser and scenario runner adapters
 internal/device/            fake, Android and iOS DeviceAdapter implementations
 internal/detect/            project/tool detectors
-internal/reporting/         terminal and JSON reporters
+internal/reporting/         terminal, JSON, JUnit XML and standalone HTML reporters
 internal/storage/           repository implementations
 internal/dashboard/         embedded local dashboard and typed events
 sdk/                        optional framework clients; never imported by Core
 examples/sdk-events/        shared sandbox and framework-neutral event scenarios
+examples/ci/                executable headless suite and provider pipeline definitions
 pkg/mobilelab/              deliberately small public extension API
 schemas/                    public configuration/scenario schemas
 examples/                   runnable samples, introduced incrementally
@@ -83,6 +86,8 @@ The server binds to `127.0.0.1` by default. Binding to a non-loopback address re
 YAML structures are transport DTOs. Parsers convert them into validated domain types before execution. Unknown YAML fields fail validation. Paths are normalized and checked to remain within the MobileLab workspace before fixtures are read.
 
 Scenario execution is platform-neutral. A scenario selects an adapter at the composition boundary; steps operate on `DeviceAdapter` and sandbox-control ports. Assertions consume observed request/response records. The initial `FakeDeviceAdapter` makes all engine tests independent of Android and iOS installations.
+
+Suite inputs are discovered recursively in lexical order and every YAML document is parsed before the first scenario executes, avoiding partial runs caused by a late malformed file. Failures do not stop later scenarios, so CI receives one complete report and a non-zero process exit. Report output directories are created explicitly at the CLI boundary.
 
 ## Persistence
 
@@ -129,6 +134,7 @@ Every new dependency must remove meaningful implementation risk and be actively 
 8. **One SDK contract, thin platform clients:** framework packages own lifecycle wiring and transport ergonomics while validation, persistence, redaction, and scenario semantics remain in Core.
 9. **Injectable SDK transports:** each package separates event construction from network I/O so its contract can be tested without a running simulator, emulator, or Core process.
 10. **Coordinated SDK release versions:** framework packages follow the MobileLab release tag even when a release only broadens adapters; GitHub assets remain traceable to one protocol-compatible source revision.
+11. **Reporters are pure output adapters:** reporting consumes immutable domain results and performs no device, HTTP, SQLite, or process operations; standard-library XML/templates keep CI formats portable and user content escaped.
 
 ## Incremental delivery plan
 

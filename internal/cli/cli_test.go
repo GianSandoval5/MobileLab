@@ -7,10 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mobilelab-dev/mobilelab/internal/config"
 	"github.com/mobilelab-dev/mobilelab/internal/device"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
+	"github.com/mobilelab-dev/mobilelab/internal/reporting"
 )
 
 func TestVersion(t *testing.T) {
@@ -48,6 +50,82 @@ func TestScenarioListParsesGeneratedScenarios(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "payment") || !strings.Contains(output.String(), "Payment failure") {
 		t.Fatalf("unexpected scenario list: %q", output.String())
+	}
+}
+
+func TestLoadScenarioInputsRecursivelySortsYAMLAndPreflightsAllFiles(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{
+		"z.yml":               "name: Last\n",
+		"nested/a.yaml":       "name: First\n",
+		"nested/ignored.json": `{}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	inputs, err := loadScenarioInputs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) != 2 || inputs[0].Definition.Name != "First" || inputs[1].Definition.Name != "Last" {
+		t.Fatalf("unexpected inputs: %#v", inputs)
+	}
+	if err := os.WriteFile(filepath.Join(root, "broken.yaml"), []byte("unknown: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadScenarioInputs(root); err == nil || !strings.Contains(err.Error(), "broken.yaml") {
+		t.Fatalf("expected preflight parse error, got %v", err)
+	}
+}
+
+func TestParseRunOptionsSupportsCIReportsAndTimeout(t *testing.T) {
+	options, err := parseRunOptions([]string{"scenarios", "--platform", "fake", "--timeout", "15s", "--report", "junit", "--output", "artifacts/results.xml"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.Report != reporting.FormatJUnit || options.Timeout != 15*time.Second || options.Platform != "fake" {
+		t.Fatalf("unexpected options: %#v", options)
+	}
+	if _, err := parseRunOptions([]string{"scenarios", "--report", "tap"}); err == nil {
+		t.Fatal("expected unsupported report rejection")
+	}
+}
+
+func TestWriteScenarioReportCreatesParentDirectories(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "artifacts", "nested", "results.xml")
+	suite := domain.NewScenarioSuiteResult("CI", time.Now().UTC(), 10, []domain.ScenarioResult{{
+		Name: "Smoke", Passed: true, StartedAt: time.Now().UTC(), Steps: []domain.ScenarioCheck{{Name: "ready", Passed: true}},
+	}})
+	runner := New(&bytes.Buffer{}, &bytes.Buffer{}, root)
+	if err := runner.writeScenarioReport(runOptions{Report: reporting.FormatJUnit, Output: path}, suite); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `<testsuites name="CI" tests="1" failures="0"`) {
+		t.Fatalf("unexpected report: %s", data)
+	}
+}
+
+func TestWriteDirectoryJSONKeepsSuiteEnvelopeForOneScenario(t *testing.T) {
+	var output bytes.Buffer
+	suite := domain.NewScenarioSuiteResult("scenarios", time.Now().UTC(), 10, []domain.ScenarioResult{{
+		Name: "Only scenario", Passed: true, StartedAt: time.Now().UTC(),
+	}})
+	runner := New(&output, &bytes.Buffer{}, t.TempDir())
+	if err := runner.writeScenarioReport(runOptions{Report: reporting.FormatJSON, Directory: true}, suite); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), `"summary"`) || !strings.Contains(output.String(), `"scenarios"`) {
+		t.Fatalf("directory JSON lost suite envelope: %s", output.String())
 	}
 }
 

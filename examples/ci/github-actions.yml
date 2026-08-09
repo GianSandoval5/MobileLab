@@ -1,0 +1,28 @@
+name: MobileLab scenarios
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  mobilelab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.x'
+      - run: go build -o bin/mobilelab ./cmd/mobilelab
+      - name: Run headless MobileLab scenarios
+        working-directory: examples/ci
+        env:
+          MOBILELAB_BIN: ../../bin/mobilelab
+        run: ./run.sh
+      - name: Upload MobileLab reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobilelab-reports
+          path: examples/ci/artifacts/
+          if-no-files-found: warn
+          retention-days: 14

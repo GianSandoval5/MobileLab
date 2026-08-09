@@ -1,6 +1,6 @@
 name: mobilelab_flutter
 description: Optional Flutter lifecycle, marker, and assertion hooks for MobileLab.
-version: 0.5.0
+version: 0.6.0
 repository: https://github.com/GianSandoval5/MobileLab/tree/master/sdk/flutter/mobilelab_flutter
 
 environment:

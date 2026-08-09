@@ -1,0 +1,29 @@
+trigger:
+  - master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: GoTool@0
+    inputs:
+      version: '1.23'
+  - script: go build -o bin/mobilelab ./cmd/mobilelab
+    displayName: Build MobileLab
+  - script: |
+      cd examples/ci
+      MOBILELAB_BIN=../../bin/mobilelab ./run.sh
+    displayName: Run headless MobileLab scenarios
+  - task: PublishTestResults@2
+    condition: always()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: examples/ci/artifacts/mobilelab-junit.xml
+      failTaskOnFailedTests: true
+      testRunTitle: MobileLab scenarios
+  - task: PublishPipelineArtifact@1
+    condition: always()
+    inputs:
+      targetPath: examples/ci/artifacts
+      artifact: mobilelab-reports
+# Retention for pipeline artifacts is configured in Azure DevOps pipeline/project settings.

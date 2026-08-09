@@ -60,7 +60,12 @@ All three SDKs remain transport adapters around protocol v1. Applications can co
 
 ## 0.6 — CI reporting
 
-JUnit XML and HTML reports, GitHub/GitLab/Azure/Jenkins examples, artifact retention, and headless device workflows.
+- [x] recursive, preflighted scenario-directory suites with aggregate domain results
+- [x] JUnit XML mapping scenarios/checks to standard test suites and cases
+- [x] standalone responsive HTML reports with escaped user-controlled content
+- [x] configurable CI timeout, output directory creation, complete-suite execution, and failure exit codes
+- [x] executable headless fake-device workflow with retained logs and report artifacts
+- [x] GitHub Actions, GitLab CI, Azure Pipelines, and Jenkins examples
 
 ## 0.7 — Plugin ecosystem
 

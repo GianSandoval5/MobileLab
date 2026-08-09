@@ -1,0 +1,9 @@
+name: Headless API health
+steps:
+  - wait_for_http: GET /health 200
+expect:
+  - request:
+      method: GET
+      path: /health
+  - response:
+      status: 200
