@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Updated GitHub artifact actions to their Node 24 generations after the v0.2.0 release warning.
+
 ## [0.2.0] - 2026-08-09
 
 ### Added
