@@ -70,8 +70,35 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  sdk-build:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: sdk/react-native/package-lock.json
+      - name: Build SDK packages
+        shell: bash
+        run: |
+          mkdir -p dist
+          version="${GITHUB_REF_NAME#v}"
+          test "$(node -p "require('./sdk/react-native/package.json').version")" = "$version"
+          grep -qx "version: $version" sdk/flutter/mobilelab_flutter/pubspec.yaml
+          npm ci --prefix sdk/react-native
+          npm run build --prefix sdk/react-native
+          npm pack ./sdk/react-native --pack-destination dist
+          git archive --format=tar.gz --prefix=mobilelab_flutter/ --output="dist/mobilelab_flutter-${version}.tar.gz" HEAD:sdk/flutter/mobilelab_flutter
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mobilelab-sdks
+          path: dist/*
+          if-no-files-found: error
+
   publish:
-    needs: build
+    needs: [build, sdk-build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8

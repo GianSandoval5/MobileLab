@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Optional `mobilelab_flutter` and `@mobilelab/react-native` packages with lifecycle, marker, assertion, automatic lifecycle reporting, examples, and package-level tests.
 - Portable `app_event` scenario assertions filtered to events emitted after each run begins.
 - Flutter/Node toolchain detection, Node 18+ diagnostics, Android Emulator diagnostics, and pinned SDK CI on Flutter 3.44.4 and Node 22.23.2.
+- Version-checked Flutter and React Native SDK archives in tag-driven GitHub Releases.
 
 ### Fixed
 
