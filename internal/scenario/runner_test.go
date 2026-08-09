@@ -52,6 +52,39 @@ func TestRunnerReportsMissingApplicationID(t *testing.T) {
 	}
 }
 
+func TestEvaluateAssertionsCorrelatesResponseWithPreviousRequest(t *testing.T) {
+	records := []domain.RequestRecord{
+		{Method: "POST", Path: "/payments", Status: 200},
+		{Method: "GET", Path: "/unrelated", Status: 500},
+	}
+	assertions := []domain.ScenarioAssertion{
+		{Request: &domain.RequestExpectation{Method: "POST", Path: "/payments"}},
+		{Response: &domain.ResponseExpectation{Status: 500}},
+	}
+	checks := evaluateAssertions(records, assertions)
+	if len(checks) != 2 || !checks[0].Passed || checks[1].Passed {
+		t.Fatalf("unrelated HTTP 500 satisfied correlated assertion: %#v", checks)
+	}
+	if checks[1].Name != "POST /payments returned HTTP 500" {
+		t.Fatalf("correlation is not visible in report: %#v", checks[1])
+	}
+}
+
+func TestEvaluateAssertionsAcceptsCorrelatedResponse(t *testing.T) {
+	records := []domain.RequestRecord{
+		{Method: "POST", Path: "/payments/123", Status: 500},
+		{Method: "GET", Path: "/unrelated", Status: 200},
+	}
+	assertions := []domain.ScenarioAssertion{
+		{Request: &domain.RequestExpectation{Method: "POST", Path: "/payments/{id}"}},
+		{Response: &domain.ResponseExpectation{Status: 500}},
+	}
+	checks := evaluateAssertions(records, assertions)
+	if !allPassed(checks) {
+		t.Fatalf("correlated response did not pass: %#v", checks)
+	}
+}
+
 type fakeEnvironment struct {
 	latency     int
 	errorStatus int

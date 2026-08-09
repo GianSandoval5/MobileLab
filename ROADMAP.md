@@ -13,8 +13,10 @@ The roadmap follows vertical, testable slices. Capabilities appear in CLI output
 - [x] SQLite request/scenario repositories
 - [x] typed WebSocket event stream and live dashboard request table
 - [x] scenario list/run/history commands
-- [ ] richer assertion correlation
-- [ ] install/release packaging and runnable framework examples
+- [x] correlated request/response assertions and parameterized-path matching
+- [x] install/release packaging with cross-platform binaries and checksums
+
+Framework SDKs and complete runnable framework applications intentionally begin in 0.3/0.4; the 0.1 core remains framework-agnostic and SDK-free.
 
 ## 0.2 — Device engine
 

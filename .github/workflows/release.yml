@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+      - run: go test ./...
+      - run: go vet ./...
+
+  build:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            extension: ''
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            extension: ''
+          - runner: macos-latest
+            goos: darwin
+            goarch: amd64
+            extension: ''
+          - runner: macos-latest
+            goos: darwin
+            goarch: arm64
+            extension: ''
+          - runner: windows-latest
+            goos: windows
+            goarch: amd64
+            extension: '.exe'
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache: true
+      - name: Build release binary
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p dist
+          version="${GITHUB_REF_NAME#v}"
+          output="dist/mobilelab-${GOOS}-${GOARCH}${{ matrix.extension }}"
+          go build -trimpath -ldflags "-s -w -X github.com/mobilelab-dev/mobilelab/internal/cli.Version=${version}" -o "$output" ./cmd/mobilelab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobilelab-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mobilelab-*
+          path: dist
+          merge-multiple: true
+      - name: Generate checksums
+        run: cd dist && sha256sum mobilelab-* > SHA256SUMS
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "MobileLab $GITHUB_REF_NAME"

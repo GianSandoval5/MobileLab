@@ -1,0 +1,40 @@
+# Changelog
+
+All notable changes to MobileLab are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and MobileLab follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-08-09
+
+### Added
+
+- Single-binary Go CLI with `init`, `start`, `stop`, `status`, `doctor`, `detect`, `capabilities`, `api`, `auth`, `deeplink`, `location`, `run`, and `scenario` commands.
+- Strict YAML configuration, framework/project detection, safe initialization, fixtures, local variables, parameterized mock routes, endpoint delays, and runtime HTTP fault injection.
+- Development-only HS256 JWT login/refresh sandbox with valid, invalid, and forced-expired session behavior.
+- Sanitized request inspection with persistent SQLite history, transactional schema migrations, WAL mode, and persisted scenario runs.
+- Portable YAML Scenario Engine with fake, Android (`adb`), and iOS Simulator (`xcrun simctl`) device adapters.
+- Correlated request/response assertions, OpenAPI-style path parameter matching, terminal output, and JSON reports.
+- OpenAPI 3 importer using `kin-openapi`, including generated mocks, schema examples, parameterized routing, and starter scenarios.
+- Typed non-blocking event bus and loopback-only live WebSocket dashboard for requests, faults, auth state, and scenario history.
+- Cross-platform CI for Linux, macOS, and Windows plus tag-driven release binaries and SHA-256 checksums.
+- MIT license, architecture, security, contribution, quick-start, platform limitations, and roadmap documentation.
+
+### Security
+
+- Loopback binding by default with an explicit warning for network exposure.
+- Random token-authenticated control endpoint and owner-readable runtime state.
+- Redaction of authorization headers, cookies, API keys, passwords, tokens, secrets, nested JSON values, and sensitive query parameters before persistence or event publication.
+- Fixture confinement blocks lexical and symlink path traversal.
+- Dashboard and WebSocket access remain loopback-only even when mock APIs are explicitly exposed.
+
+### Known limitations
+
+- Android/iOS network conditioning and local push delivery are not yet implemented.
+- Full Flutter, React Native, Kotlin, Swift, and Capacitor SDKs/examples are planned for later milestones.
+- SQLite retention/pruning and JUnit/HTML reports are not yet available.
+- OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
+
+[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/GianSandoval5/MobileLab/releases/tag/v0.1.0

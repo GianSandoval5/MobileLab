@@ -2,7 +2,7 @@
 
 MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
 
-> Status: early **v0.1.0 development snapshot**. The API sandbox and first scenario/device verticals are usable; see [Current limitations](#current-limitations).
+> Status: **v0.1.0** local scenario foundation. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
 
 ## Why MobileLab?
 
@@ -12,12 +12,22 @@ Mobile applications fail at boundaries: expired sessions, slow responses, malfor
 
 The Go core is a single process, binds to `127.0.0.1` by default, and does not require Node.js or Docker. Optional framework SDKs will add advanced integrations later; basic HTTP mocks do not need them.
 
-## Build and quick start
+## Installation
 
-Requirements: Go 1.23 or newer.
+Download the binary for your operating system from [GitHub Releases](https://github.com/GianSandoval5/MobileLab/releases), verify it against `SHA256SUMS`, rename it to `mobilelab` (`mobilelab.exe` on Windows), and place it on your `PATH`.
+
+To build from source, use Go 1.23 or newer:
 
 ```sh
+git clone https://github.com/GianSandoval5/MobileLab.git
+cd MobileLab
 make build
+./bin/mobilelab --version
+```
+
+## Quick start
+
+```sh
 ./bin/mobilelab doctor
 
 cd /path/to/your/mobile/project

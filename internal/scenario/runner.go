@@ -129,12 +129,14 @@ func (r Runner) waitForAssertions(ctx context.Context, started time.Time, assert
 
 func evaluateAssertions(records []domain.RequestRecord, assertions []domain.ScenarioAssertion) []domain.ScenarioCheck {
 	checks := make([]domain.ScenarioCheck, 0, len(assertions))
+	var previousRequest *domain.RequestExpectation
 	for _, assertion := range assertions {
 		if assertion.Request != nil {
+			previousRequest = assertion.Request
 			name := assertion.Request.Method + " " + assertion.Request.Path + " observed"
 			matched := false
 			for _, record := range records {
-				if strings.EqualFold(record.Method, assertion.Request.Method) && record.Path == assertion.Request.Path {
+				if strings.EqualFold(record.Method, assertion.Request.Method) && assertionPathMatches(assertion.Request.Path, record.Path) {
 					matched = true
 					break
 				}
@@ -147,9 +149,13 @@ func evaluateAssertions(records []domain.RequestRecord, assertions []domain.Scen
 			continue
 		}
 		name := fmt.Sprintf("HTTP %d observed", assertion.Response.Status)
+		if previousRequest != nil {
+			name = fmt.Sprintf("%s %s returned HTTP %d", previousRequest.Method, previousRequest.Path, assertion.Response.Status)
+		}
 		matched := false
 		for _, record := range records {
-			if record.Status == assertion.Response.Status {
+			requestMatches := previousRequest == nil || (strings.EqualFold(record.Method, previousRequest.Method) && assertionPathMatches(previousRequest.Path, record.Path))
+			if requestMatches && record.Status == assertion.Response.Status {
 				matched = true
 				break
 			}
@@ -157,10 +163,37 @@ func evaluateAssertions(records []domain.RequestRecord, assertions []domain.Scen
 		if matched {
 			checks = append(checks, passedCheck(name))
 		} else {
-			checks = append(checks, domain.ScenarioCheck{Name: name, Message: "matching response was not observed"})
+			message := "matching response was not observed"
+			if previousRequest != nil {
+				message = "the matching request was not observed with the expected response status"
+			}
+			checks = append(checks, domain.ScenarioCheck{Name: name, Message: message})
 		}
 	}
 	return checks
+}
+
+func assertionPathMatches(pattern, observed string) bool {
+	if pattern == observed {
+		return true
+	}
+	patternSegments := strings.Split(strings.Trim(pattern, "/"), "/")
+	observedSegments := strings.Split(strings.Trim(observed, "/"), "/")
+	if len(patternSegments) != len(observedSegments) {
+		return false
+	}
+	for index, segment := range patternSegments {
+		if strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}") && len(segment) > 2 {
+			if observedSegments[index] == "" {
+				return false
+			}
+			continue
+		}
+		if segment != observedSegments[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func recordsSince(records []domain.RequestRecord, started time.Time) []domain.RequestRecord {
