@@ -21,6 +21,7 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/doctor"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	openapiimport "github.com/mobilelab-dev/mobilelab/internal/openapi"
+	pluginruntime "github.com/mobilelab-dev/mobilelab/internal/plugins"
 	"github.com/mobilelab-dev/mobilelab/internal/recording"
 	"github.com/mobilelab-dev/mobilelab/internal/reporting"
 	"github.com/mobilelab-dev/mobilelab/internal/runtime"
@@ -34,6 +35,7 @@ type Runner struct {
 	Err            io.Writer
 	Dir            string
 	DeviceAdapters []domain.DeviceAdapter
+	PluginProcess  pluginruntime.ProcessRunner
 }
 
 func New(out, errOut io.Writer, dir string) Runner {
@@ -81,6 +83,8 @@ func (r Runner) Run(ctx context.Context, args []string) error {
 			return fmt.Errorf("usage: mobilelab replay <name> [scenario options]")
 		}
 		return r.scenarioCommand(ctx, append([]string{"run"}, args[1:]...))
+	case "plugin":
+		return r.pluginCommand(ctx, args[1:])
 	case "start":
 		return r.start(ctx, args[1:])
 	case "status":
@@ -1052,6 +1056,7 @@ Available commands:
   scenario   List, run, and inspect persistent scenario history
   record     Capture app traffic/actions into a portable YAML scenario
   replay     Execute a recorded scenario through the standard runner
+  plugin     List, inspect, and explicitly run project-local plugins
   version    Print the MobileLab version
   help       Show this help`)
 }

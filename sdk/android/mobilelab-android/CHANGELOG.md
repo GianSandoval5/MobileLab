@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- Coordinated package release; SDK event protocol v1 remains unchanged.
+
 ## 0.6.0
 
 - Coordinated package release; protocol v1 remains unchanged.

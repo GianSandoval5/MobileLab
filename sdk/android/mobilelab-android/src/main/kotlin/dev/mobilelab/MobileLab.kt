@@ -51,7 +51,7 @@ public class MobileLabHttpTransport(
             connection.readTimeout = timeoutMillis
             connection.doOutput = true
             connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("X-MobileLab-SDK", "mobilelab-android/0.6.0")
+            connection.setRequestProperty("X-MobileLab-SDK", "mobilelab-android/0.7.0")
             connection.outputStream.use { output ->
                 output.write(Json.encode(event.toWireValue()).toByteArray(Charsets.UTF_8))
             }

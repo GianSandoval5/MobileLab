@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
+### Added
+
+- Language-neutral `mobilelab.plugin/v1` request/response protocol with strict schemas, 1 MiB message bounds, request correlation, and a small public Go authoring package.
+- Project-local plugin manifests under `mobilelab/plugins/<name>`, including strict SemVer/action validation, confined executable resolution, and SHA-256 fingerprints.
+- `mobilelab plugin list`, `plugin inspect [--json]`, and explicit `plugin run` with JSON input/output, configurable deadlines, and owner-private output files.
+- Runnable Go echo plugin and CI conformance workflow exercising discovery, inspection, and real out-of-process invocation.
+
+### Security
+
+- Plugin discovery and inspection never execute code; ordinary startup and scenario execution do not load plugins implicitly.
+- Plugin processes receive a minimal allowlisted environment, run without a shell, and have bounded execution time and output.
+- Documented that plugins remain trusted local executables with the user's OS permissions; v0.7 adds no remote registry, downloader, automatic updater, or unsubstantiated signature guarantees.
+
+### Changed
+
+- Coordinated all optional framework SDK package versions at 0.7.0 without changing SDK event protocol v1.
+
 ## [0.6.0] - 2026-08-09
 
 ### Added
@@ -116,7 +135,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - SQLite retention/pruning and JUnit/HTML reports are not yet available.
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
-[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.3.0...v0.4.0

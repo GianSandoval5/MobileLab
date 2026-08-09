@@ -1,0 +1,8 @@
+api_version: mobilelab.plugin/v1
+name: echo
+version: 0.1.0
+description: Returns the structured input it receives from MobileLab
+executable: mobilelab-plugin-echo
+actions:
+  - name: echo
+    description: Return the supplied JSON input

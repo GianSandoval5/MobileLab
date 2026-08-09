@@ -2,7 +2,7 @@
 
 MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
 
-> Status: **v0.6.0** CI suites and JUnit/HTML reporting plus record/replay and optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
+> Status: **v0.7.0** project-local plugin ecosystem plus CI suites, record/replay, and optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
 
 ## Why MobileLab?
 
@@ -246,6 +246,24 @@ For an Android Emulator, `localhost` is the emulator itself. Use `http://10.0.2.
 
 The embedded dashboard at `http://127.0.0.1:4566/dashboard` receives a persisted snapshot followed by typed WebSocket events for sanitized requests, active latency/errors/auth state, and scenario results. Slow dashboard clients never block the API Sandbox; their oldest buffered event is discarded in favor of current state. The dashboard and WebSocket endpoints remain loopback-only even when a mock API is explicitly bound to a network address. Node.js is not required at runtime.
 
+## Project-local plugins
+
+MobileLab v0.7 introduces the versioned `mobilelab.plugin/v1` protocol. A plugin is a short-lived executable plus a strict manifest at `mobilelab/plugins/<name>/plugin.yaml`; it can be written in any language that reads one JSON request from standard input and writes one JSON response to standard output.
+
+```sh
+mobilelab plugin list
+mobilelab plugin inspect echo
+mobilelab plugin inspect echo --json
+mobilelab plugin run echo echo --input input.json --timeout 30s
+mobilelab plugin run echo echo --input input.json --output artifacts/result.json
+```
+
+Discovery and inspection never execute plugin code. Execution occurs only through an explicit `plugin run`, uses no shell, defaults to a 30-second timeout, caps protocol messages at 1 MiB, and passes a minimal allowlisted environment. Output files are created with owner-only permissions. The inspect command reports the exact executable SHA-256 fingerprint.
+
+Plugins are nevertheless trusted local programs: v0.7 does not provide an operating-system sandbox and a plugin runs with the user's filesystem and network permissions. Review third-party code and its fingerprint before execution. MobileLab deliberately has no network-backed plugin installer yet, and cloud integrations such as Firebase or Supabase will be selected only from demonstrated demand instead of becoming mandatory dependencies.
+
+Go plugin authors can use the public [`pkg/plugin`](pkg/plugin) package. The runnable [echo example](examples/plugins/README.md) demonstrates the manifest, authoring API, discovery, inspection, and explicit invocation without a running sandbox.
+
 ## Architecture
 
 MobileLab is a Go modular monolith with inward-pointing dependencies and explicit ports for devices, request storage, scenarios, environment control, process execution, and future events. Platform details stay in adapters. See [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -258,7 +276,7 @@ make lint
 make build
 ```
 
-Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, SDK protocol ingestion, scenario execution, suite aggregation, and safe report rendering. Integration tests open temporary loopback servers for lifecycle and recorder behavior. Core CI runs on Linux, macOS, and Windows; separate SDK CI pins Flutter 3.44.4, Node 22.23.2, and Java 17, and validates the Swift Package on macOS.
+Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, SDK protocol ingestion, scenario execution, suite aggregation, safe report rendering, and plugin protocol boundaries. Integration tests open temporary loopback servers for lifecycle and recorder behavior. Core CI runs on Linux, macOS, and Windows; an executable plugin example runs in CI, while separate SDK CI pins Flutter 3.44.4, Node 22.23.2, and Java 17 and validates the Swift Package on macOS.
 
 The executable [CI example](examples/ci/README.md) starts MobileLab with `--headless`, runs a directory through the fake adapter, and publishes JUnit XML, standalone HTML, the Core log, and a response fixture. Copy-ready definitions cover GitHub Actions, GitLab CI, Azure Pipelines, and Jenkins with provider-native test/artifact publication; retention is explicit where the provider exposes it in pipeline code and documented as an Azure project setting otherwise. Real emulators/simulators remain opt-in: provision a booted device on the runner, then replace `--platform fake` and supply its explicit device/application identifiers.
 
@@ -268,6 +286,7 @@ The executable [CI example](examples/ci/README.md) starts MobileLab with `--head
 - Android Emulator Ethernet/cellular latency and speed shaping is partial; reliable offline mode and iOS network conditioning are unavailable. Local push is limited to booted iOS Simulators with supported Xcode tooling.
 - OpenAPI import does not yet support external references, callbacks, GraphQL, gRPC, or sophisticated example generation.
 - All framework integrations are optional observability SDKs; they are not required for the API Sandbox.
+- Plugins are manually installed, trusted project-local executables in v0.7. MobileLab limits their invocation but does not provide an OS sandbox, registry, signature verification, dependency resolution, or automatic updates.
 - SQLite retention/pruning policy is not implemented yet; schema migrations currently cover versions 1 through 3. Active recordings are process-local and are finalized by the `record` command.
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

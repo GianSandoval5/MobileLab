@@ -3,8 +3,10 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -13,7 +15,14 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/device"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	"github.com/mobilelab-dev/mobilelab/internal/reporting"
+	protocol "github.com/mobilelab-dev/mobilelab/pkg/plugin"
 )
+
+type pluginProcessFunc func(context.Context, string, string, []string, []byte, int) ([]byte, error)
+
+func (function pluginProcessFunc) Run(ctx context.Context, executable, directory string, environment []string, input []byte, limit int) ([]byte, error) {
+	return function(ctx, executable, directory, environment, input, limit)
+}
 
 func TestVersion(t *testing.T) {
 	var output bytes.Buffer
@@ -31,6 +40,116 @@ func TestUnknownCommandIsActionable(t *testing.T) {
 	err := runner.Run(context.Background(), []string{"wat"})
 	if err == nil || !strings.Contains(err.Error(), "mobilelab help") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPluginCommandsDiscoverInspectAndRunExplicitPlugin(t *testing.T) {
+	root := t.TempDir()
+	createTestPlugin(t, root)
+	var output, errors bytes.Buffer
+	runner := New(&output, &errors, root)
+	runner.PluginProcess = pluginProcessFunc(func(_ context.Context, executable, directory string, environment []string, input []byte, limit int) ([]byte, error) {
+		realDirectory, err := filepath.EvalSymlinks(directory)
+		if err != nil {
+			t.Fatal(err)
+		}
+		relative, err := filepath.Rel(realDirectory, executable)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			t.Fatalf("executable escaped plugin directory: %q", executable)
+		}
+		if limit != protocol.MaxMessageBytes {
+			t.Fatalf("unexpected output limit: %d", limit)
+		}
+		for _, variable := range environment {
+			if strings.HasPrefix(variable, "MOBILELAB_TEST_SECRET=") {
+				t.Fatalf("secret environment variable was inherited: %q", variable)
+			}
+		}
+		request, err := protocol.DecodeRequest(bytes.NewReader(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if request.Action != "echo" || string(request.Input) != `{"hello":"plugins"}` || request.Context.ProjectDir != root {
+			t.Fatalf("unexpected request: %#v", request)
+		}
+		var encoded bytes.Buffer
+		if err := protocol.EncodeResponse(&encoded, protocol.Response{
+			Protocol: protocol.ProtocolVersion, RequestID: request.RequestID, Success: true,
+			Message: "echo complete", Output: json.RawMessage(`{"received":true}`),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return encoded.Bytes(), nil
+	})
+
+	if err := runner.Run(context.Background(), []string{"plugin", "list"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "echo") || !strings.Contains(output.String(), "actions: echo") {
+		t.Fatalf("unexpected plugin list: %q", output.String())
+	}
+	output.Reset()
+	if err := runner.Run(context.Background(), []string{"plugin", "inspect", "echo", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), `"sha256"`) || !strings.Contains(output.String(), `"mobilelab.plugin/v1"`) {
+		t.Fatalf("unexpected plugin inspection: %q", output.String())
+	}
+
+	inputPath := filepath.Join(root, "input.json")
+	if err := os.WriteFile(inputPath, []byte(`{"hello":"plugins"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outputPath := filepath.Join(root, "artifacts", "plugin.json")
+	if err := os.Setenv("MOBILELAB_TEST_SECRET", "must-not-leak"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("MOBILELAB_TEST_SECRET") })
+	if err := runner.Run(context.Background(), []string{"plugin", "run", "echo", "echo", "--input", inputPath, "--output", outputPath}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "{\n  \"received\": true\n}\n" || !strings.Contains(errors.String(), "echo complete") {
+		t.Fatalf("unexpected plugin result: output=%q stderr=%q", data, errors.String())
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(outputPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("plugin output permissions = %o, want 600", info.Mode().Perm())
+		}
+	}
+}
+
+func createTestPlugin(t *testing.T, root string) {
+	t.Helper()
+	directory := filepath.Join(root, "mobilelab", "plugins", "echo")
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `api_version: mobilelab.plugin/v1
+name: echo
+version: 0.1.0
+description: Echo test plugin
+executable: mobilelab-plugin-echo
+actions:
+  - name: echo
+    description: Echo structured input
+`
+	if err := os.WriteFile(filepath.Join(directory, "plugin.yaml"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(directory, "mobilelab-plugin-echo")
+	if runtime.GOOS == "windows" {
+		executable += ".exe"
+	}
+	if err := os.WriteFile(executable, []byte("test plugin"), 0o755); err != nil {
+		t.Fatal(err)
 	}
 }
 

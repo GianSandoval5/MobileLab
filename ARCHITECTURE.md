@@ -21,6 +21,8 @@ For 0.5, recording is an application service behind a typed domain port. Core ow
 
 For 0.6, a scenario suite is a domain aggregate over one or more ordinary scenario results. Directory discovery and strict preflight parsing stay in the CLI adapter; execution remains sequential through the same scenario runner and preserves per-scenario environment isolation. Reporting adapters consume the completed suite without reaching into the runtime: terminal and JSON remain available, JUnit XML maps checks to CI test cases, and a standalone HTML adapter renders escaped user-controlled content with no external assets or JavaScript. Provider examples own artifact retention because retention is a CI policy, not Core persistence.
 
+For 0.7, extensions cross an explicit out-of-process boundary instead of being linked into Core. A project-local catalog reads strict `mobilelab.plugin/v1` manifests without executing them, resolves each executable within its declared plugin directory, and fingerprints its current contents. Only `mobilelab plugin run` starts a plugin: one bounded JSON request is sent on standard input and one correlated, bounded JSON response is accepted on standard output. The host supplies a minimal environment, a deadline, and no shell. The public Go package models this wire protocol for authors, while the protocol remains language-neutral. Plugins are trusted local programs rather than a security sandbox, and neither startup nor scenario execution loads them implicitly.
+
 ## Dependency rule
 
 Dependencies point inward:
@@ -49,12 +51,14 @@ internal/scenario/          YAML parser and scenario runner adapters
 internal/device/            fake, Android and iOS DeviceAdapter implementations
 internal/detect/            project/tool detectors
 internal/reporting/         terminal, JSON, JUnit XML and standalone HTML reporters
+internal/plugins/           strict manifest catalog and bounded process host
 internal/storage/           repository implementations
 internal/dashboard/         embedded local dashboard and typed events
 sdk/                        optional framework clients; never imported by Core
 examples/sdk-events/        shared sandbox and framework-neutral event scenarios
 examples/ci/                executable headless suite and provider pipeline definitions
-pkg/mobilelab/              deliberately small public extension API
+examples/plugins/           executable project-local plugin example
+pkg/plugin/                 public, versioned plugin authoring protocol
 schemas/                    public configuration/scenario schemas
 examples/                   runnable samples, introduced incrementally
 docs/                       user and platform documentation
@@ -88,6 +92,14 @@ YAML structures are transport DTOs. Parsers convert them into validated domain t
 Scenario execution is platform-neutral. A scenario selects an adapter at the composition boundary; steps operate on `DeviceAdapter` and sandbox-control ports. Assertions consume observed request/response records. The initial `FakeDeviceAdapter` makes all engine tests independent of Android and iOS installations.
 
 Suite inputs are discovered recursively in lexical order and every YAML document is parsed before the first scenario executes, avoiding partial runs caused by a late malformed file. Failures do not stop later scenarios, so CI receives one complete report and a non-zero process exit. Report output directories are created explicitly at the CLI boundary.
+
+## Plugin boundary
+
+Plugin discovery is local to `<project>/mobilelab/plugins`; there is no global search path, network registry, automatic installation, or implicit execution. Manifest names and actions use a constrained identifier grammar, versions are SemVer, unknown YAML fields fail, executable paths are base names, and resolved symlinks must remain inside the plugin directory. Inspection hashes the resolved regular executable.
+
+Invocation uses a short-lived child process with the plugin directory as its working directory. The host passes only path/temp variables needed for process startup plus `MOBILELAB_PLUGIN_PROTOCOL` and `MOBILELAB_PLUGIN_NAME`; arbitrary parent variables are excluded. Requests and responses are strict JSON documents capped at 1 MiB and correlated with cryptographically random request IDs. The CLI default deadline is 30 seconds and its public upper bound is five minutes. A plugin cannot add in-process routes, mutate MobileLab memory, or weaken the single-binary installation path.
+
+These controls reduce accidental coupling and secret inheritance, but do not create an OS sandbox. Once explicitly invoked, a plugin has the same user-level filesystem and network authority as any local executable. Distribution trust, signatures, installation, dependency resolution, and automatic updates remain outside the v0.7 contract.
 
 ## Persistence
 
@@ -135,6 +147,8 @@ Every new dependency must remove meaningful implementation risk and be actively 
 9. **Injectable SDK transports:** each package separates event construction from network I/O so its contract can be tested without a running simulator, emulator, or Core process.
 10. **Coordinated SDK release versions:** framework packages follow the MobileLab release tag even when a release only broadens adapters; GitHub assets remain traceable to one protocol-compatible source revision.
 11. **Reporters are pure output adapters:** reporting consumes immutable domain results and performs no device, HTTP, SQLite, or process operations; standard-library XML/templates keep CI formats portable and user content escaped.
+12. **Plugins are explicit out-of-process extensions:** strict project-local manifests and a versioned JSON protocol preserve framework/language neutrality; no plugin code runs during discovery, startup, or ordinary scenarios.
+13. **No registry before a trust model:** v0.7 exposes inspection and SHA-256 fingerprints but does not download executables or imply authenticity. First-party cloud integrations wait for demonstrated demand.
 
 ## Incremental delivery plan
 
@@ -144,5 +158,6 @@ Every new dependency must remove meaningful implementation risk and be actively 
 4. Add scenario domain/parser/runner, fake device adapter, assertions, and JSON reports.
 5. Add real Android and conditional iOS slices, doctor/capabilities, dashboard events, and OpenAPI import.
 6. Add SQLite repositories and live dashboard events, then continue with examples, richer assertions, and release packaging.
+7. Add the versioned plugin protocol, project-local catalog, explicit bounded execution, author SDK, and executable conformance example.
 
 Each slice must finish with formatting, focused tests, the full test suite, and a cross-platform-oriented build before the next slice starts.

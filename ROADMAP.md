@@ -69,7 +69,14 @@ All three SDKs remain transport adapters around protocol v1. Applications can co
 
 ## 0.7 — Plugin ecosystem
 
-Versioned plugin protocol and first-party integrations selected by demonstrated demand. Plugins must not weaken local-first installation.
+- [x] versioned, language-neutral `mobilelab.plugin/v1` request/response contract
+- [x] strict project-local manifests, confined executable resolution, and SHA-256 inspection
+- [x] explicit short-lived execution with deadlines, bounded I/O, response correlation, and minimal inherited environment
+- [x] `plugin list`, `plugin inspect`, and `plugin run` CLI workflows
+- [x] public Go authoring package and executable protocol example in CI
+- [x] documented trusted-code boundary with no registry, implicit execution, or mandatory cloud dependency
+
+First-party Firebase, Supabase, GraphQL, or gRPC integrations remain candidates selected by demonstrated demand; v0.7 does not invent credentials or weaken local-first installation to claim them.
 
 ## 1.0 — Stable platform
 
