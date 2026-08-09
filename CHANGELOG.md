@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Updated GitHub artifact actions to their Node 24 generations after the v0.2.0 release warning.
+- Avoided the Flutter action's legacy Node 20 cache path while retaining pinned SDK validation.
 
 ## [0.2.0] - 2026-08-09
 
