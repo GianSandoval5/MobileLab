@@ -116,7 +116,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - SQLite retention/pruning and JUnit/HTML reports are not yet available.
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
-[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.6.0...HEAD
 [0.6.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.3.0...v0.4.0
