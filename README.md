@@ -2,7 +2,7 @@
 
 MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
 
-> Status: **v0.1.0** local scenario foundation. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
+> Status: **v0.2.0** Device Engine. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
 
 ## Why MobileLab?
 
