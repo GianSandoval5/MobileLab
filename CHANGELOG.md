@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-09
+
 ### Added
 
 - Versioned protocol v1 SDK Bridge with strict 64 KiB ingestion, nested secret redaction, SQLite app-event history, realtime dashboard updates, and authenticated scenario access.
@@ -66,6 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - SQLite retention/pruning and JUnit/HTML reports are not yet available.
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
-[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/GianSandoval5/MobileLab/releases/tag/v0.1.0
