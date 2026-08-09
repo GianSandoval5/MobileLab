@@ -57,11 +57,60 @@ func TestAndroidClearUsesPackageManagerForExplicitApp(t *testing.T) {
 	}
 }
 
+func TestParseAndroidAVDsExposesBootTargets(t *testing.T) {
+	devices := parseAndroidAVDs("Pixel_9_API_35\nTablet_API_34\nPixel_9_API_35\n", nil)
+	if len(devices) != 2 {
+		t.Fatalf("got %d AVDs: %#v", len(devices), devices)
+	}
+	if devices[0].ID != "avd:Pixel_9_API_35" || devices[0].State != "shutdown" {
+		t.Fatalf("unexpected AVD: %#v", devices[0])
+	}
+	if devices[0].Capabilities[domain.CapabilityBoot] != domain.CapabilityAvailable || devices[0].Capabilities[domain.CapabilityLaunch] != domain.CapabilityUnavailable {
+		t.Fatalf("unexpected AVD capabilities: %#v", devices[0].Capabilities)
+	}
+}
+
+func TestParseAndroidAVDsOmitsAlreadyRunningAVD(t *testing.T) {
+	devices := parseAndroidAVDs("Pixel_9_API_35\nTablet_API_34\n", map[string]struct{}{"Pixel_9_API_35": {}})
+	if len(devices) != 1 || devices[0].Name != "Tablet_API_34" {
+		t.Fatalf("unexpected inactive AVDs: %#v", devices)
+	}
+	if got := parseRunningAVDName("Pixel_9_API_35\nOK\n"); got != "Pixel_9_API_35" {
+		t.Fatalf("running AVD name = %q", got)
+	}
+}
+
+func TestAndroidBootStartsExplicitAVDWithoutBlocking(t *testing.T) {
+	runner := &fakeRunner{path: "/sdk/emulator"}
+	adapter := NewAndroidAdapter(runner)
+	if err := adapter.BootDevice(context.Background(), "avd:Pixel_9_API_35"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-avd", "Pixel_9_API_35"}
+	if !runner.started || !reflect.DeepEqual(runner.args, want) {
+		t.Fatalf("started=%t args=%v, want %v", runner.started, runner.args, want)
+	}
+}
+
+func TestAndroidBootRejectsAttachedDeviceID(t *testing.T) {
+	adapter := NewAndroidAdapter(&fakeRunner{path: "/sdk/emulator"})
+	if err := adapter.BootDevice(context.Background(), "emulator-5554"); err == nil {
+		t.Fatal("expected attached device ID to be rejected")
+	}
+}
+
 type fakeRunner struct {
-	path   string
-	output []byte
-	args   []string
-	err    error
+	path    string
+	output  []byte
+	args    []string
+	err     error
+	started bool
+}
+
+func (f *fakeRunner) Start(_ context.Context, _ string, args ...string) error {
+	f.args = append([]string(nil), args...)
+	f.started = true
+	return f.err
 }
 
 func (f *fakeRunner) LookPath(string) (string, error) { return f.path, f.err }

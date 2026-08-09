@@ -161,10 +161,11 @@ mobilelab device info --platform ios --device <simulator-udid> --json
 mobilelab device launch --platform android --device emulator-5554 --app-id com.example.app
 mobilelab device stop --platform android --device emulator-5554 --app-id com.example.app
 mobilelab device clear --platform android --device emulator-5554 --app-id com.example.app
+mobilelab device boot --platform android --device avd:Pixel_9_API_35
 mobilelab device boot --platform ios --device <shutdown-simulator-udid>
 ```
 
-Android uses `adb`. Deep links use `adb shell am start`; location uses `adb emu geo fix` and is therefore limited to emulators. Explicit `device clear` uses `adb shell pm clear` and deletes the selected application's local data. Starting an Android emulator is not yet advertised because it requires AVD discovery rather than an attached-device ID. MobileLab does not currently claim device-wide Android network conditioning.
+Android uses the official `adb` and Android Emulator executables. MobileLab resolves them from `PATH`, `ANDROID_HOME`, or `ANDROID_SDK_ROOT`. Configured, inactive AVDs are listed with IDs prefixed by `avd:` and can be started explicitly with `device boot`; a running AVD is represented by its attached `emulator-*` serial instead. Deep links use `adb shell am start`; location uses `adb emu geo fix` and is therefore limited to running emulators. Explicit `device clear` uses `adb shell pm clear` and deletes the selected application's local data. MobileLab does not currently claim device-wide Android network conditioning.
 
 iOS uses `xcrun simctl` and is available only on macOS with Xcode. It supports discovery, simulator boot, app launch/terminate, deep links, and simulator location. On iOS, explicit `device clear` uses `simctl uninstall`, so the selected app is removed rather than merely having its data reset. `simctl` does not provide a portable network-conditioning command, so that capability is reported unavailable.
 

@@ -82,7 +82,7 @@ SQLite implements the `RequestRepository` and `ScenarioRunRepository` ports in `
 
 ## Device adapters
 
-- Android invokes only verified `adb` commands. Discovery, app launch/stop, explicit `pm clear`, deep links, and emulator-only location are capability-gated. Emulator startup remains unavailable until an AVD-name port is introduced.
+- Android invokes only verified `adb` and Android Emulator commands. Discovery combines attached targets with configured AVDs; inactive AVDs use stable `avd:<name>` IDs and a non-blocking process port starts the explicitly selected AVD. Running AVDs are de-duplicated when the emulator console reports their names. App launch/stop, explicit `pm clear`, deep links, and emulator-only location remain capability-gated.
 - iOS invokes `xcrun simctl` only on macOS and reports unavailable capabilities elsewhere. Detected shutdown simulators expose boot; booted simulators expose launch/stop, explicit uninstall-as-clear, deep links, and location. Portable runtime checks preserve cross-platform builds.
 - SDK/framework adapters are optional outbound integrations and never branch through the core by framework name.
 

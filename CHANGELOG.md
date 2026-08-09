@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Explicit `--platform` and `--device` selection for deep links, location, and new device lifecycle commands.
 - `mobilelab device list|info|launch|stop|clear|boot`, including JSON device inspection.
 - Android app-data clearing through `adb shell pm clear` and iOS Simulator boot/app uninstall through verified `simctl` commands.
+- Android AVD discovery and explicit non-blocking startup by `avd:<name>`, with SDK tool resolution through `PATH`, `ANDROID_HOME`, or `ANDROID_SDK_ROOT`.
 
 ### Fixed
 
