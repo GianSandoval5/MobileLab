@@ -1,0 +1,7 @@
+/bin/
+/coverage.out
+/mobilelab/.state.json
+/mobilelab/*.db*
+/.idea/
+/.vscode/
+.DS_Store

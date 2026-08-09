@@ -1,0 +1,191 @@
+package scenario
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/mobilelab-dev/mobilelab/internal/domain"
+)
+
+type Runner struct {
+	Environment domain.ScenarioEnvironment
+	Device      domain.DeviceAdapter
+	Runs        domain.ScenarioRunRepository
+	Now         func() time.Time
+}
+
+func (r Runner) Run(ctx context.Context, definition domain.ScenarioDefinition, options domain.ScenarioRunOptions) (result domain.ScenarioResult, resultErr error) {
+	if err := definition.Validate(); err != nil {
+		return domain.ScenarioResult{}, err
+	}
+	if r.Environment == nil || r.Device == nil {
+		return domain.ScenarioResult{}, fmt.Errorf("scenario environment and device adapter are required")
+	}
+	if r.Now == nil {
+		r.Now = time.Now
+	}
+	if options.Timeout <= 0 {
+		options.Timeout = 3 * time.Second
+	}
+	started := r.Now().UTC()
+	result = domain.ScenarioResult{Name: definition.Name, StartedAt: started}
+	defer func() {
+		if err := r.Environment.Reset(context.WithoutCancel(ctx)); err != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("reset scenario environment: %w", err))
+		}
+		result.DurationMS = r.Now().Sub(started).Milliseconds()
+		result.Passed = resultErr == nil && allPassed(result.Steps) && allPassed(result.Assertions)
+		if resultErr != nil {
+			result.Error = resultErr.Error()
+		}
+		if r.Runs != nil {
+			if err := r.Runs.Save(context.WithoutCancel(ctx), result); err != nil {
+				resultErr = errors.Join(resultErr, fmt.Errorf("persist scenario result: %w", err))
+				result.Passed = false
+				result.Error = resultErr.Error()
+			}
+		}
+	}()
+
+	if err := r.Environment.Reset(ctx); err != nil {
+		return result, fmt.Errorf("prepare scenario environment: %w", err)
+	}
+	if err := r.Environment.SetLatency(ctx, definition.Backend.LatencyMS); err != nil {
+		return result, fmt.Errorf("configure scenario latency: %w", err)
+	}
+	if definition.Backend.Error != 0 {
+		if err := r.Environment.SetError(ctx, definition.Backend.Error); err != nil {
+			return result, fmt.Errorf("configure scenario error: %w", err)
+		}
+	}
+	if err := r.Environment.SetAuthExpired(ctx, definition.Auth.Token == "expired"); err != nil {
+		return result, fmt.Errorf("configure scenario auth: %w", err)
+	}
+	if definition.Device.Network != "" {
+		if err := r.Device.SetNetworkCondition(ctx, options.DeviceID, definition.Device.Network); err != nil {
+			result.Steps = append(result.Steps, failedCheck("set network "+string(definition.Device.Network), err))
+			return result, err
+		}
+		result.Steps = append(result.Steps, passedCheck("set network "+string(definition.Device.Network)))
+	}
+
+	for _, step := range definition.Steps {
+		name := string(step.Kind)
+		var err error
+		switch step.Kind {
+		case domain.StepLaunchApp:
+			if options.AppID == "" {
+				err = fmt.Errorf("launch_app requires an application ID")
+			} else {
+				err = r.Device.LaunchApp(ctx, options.DeviceID, options.AppID)
+			}
+		case domain.StepStopApp:
+			if options.AppID == "" {
+				err = fmt.Errorf("stop_app requires an application ID")
+			} else {
+				err = r.Device.StopApp(ctx, options.DeviceID, options.AppID)
+			}
+		case domain.StepOpenDeepLink:
+			err = r.Device.OpenDeepLink(ctx, options.DeviceID, step.Value)
+		default:
+			err = fmt.Errorf("unsupported scenario step %q", step.Kind)
+		}
+		if err != nil {
+			result.Steps = append(result.Steps, failedCheck(name, err))
+			return result, fmt.Errorf("scenario step %s: %w", name, err)
+		}
+		result.Steps = append(result.Steps, passedCheck(name))
+	}
+
+	if len(definition.Assertions) > 0 {
+		result.Assertions = r.waitForAssertions(ctx, started, definition.Assertions, options.Timeout)
+	}
+	return result, nil
+}
+
+func (r Runner) waitForAssertions(ctx context.Context, started time.Time, assertions []domain.ScenarioAssertion, timeout time.Duration) []domain.ScenarioCheck {
+	deadline := time.Now().Add(timeout)
+	for {
+		records, err := r.Environment.RecentRequests(ctx, 500)
+		if err != nil {
+			return []domain.ScenarioCheck{failedCheck("read observed requests", err)}
+		}
+		checks := evaluateAssertions(recordsSince(records, started), assertions)
+		if allPassed(checks) || time.Now().After(deadline) {
+			return checks
+		}
+		timer := time.NewTimer(50 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return []domain.ScenarioCheck{failedCheck("wait for assertions", ctx.Err())}
+		case <-timer.C:
+		}
+	}
+}
+
+func evaluateAssertions(records []domain.RequestRecord, assertions []domain.ScenarioAssertion) []domain.ScenarioCheck {
+	checks := make([]domain.ScenarioCheck, 0, len(assertions))
+	for _, assertion := range assertions {
+		if assertion.Request != nil {
+			name := assertion.Request.Method + " " + assertion.Request.Path + " observed"
+			matched := false
+			for _, record := range records {
+				if strings.EqualFold(record.Method, assertion.Request.Method) && record.Path == assertion.Request.Path {
+					matched = true
+					break
+				}
+			}
+			if matched {
+				checks = append(checks, passedCheck(name))
+			} else {
+				checks = append(checks, domain.ScenarioCheck{Name: name, Message: "matching request was not observed"})
+			}
+			continue
+		}
+		name := fmt.Sprintf("HTTP %d observed", assertion.Response.Status)
+		matched := false
+		for _, record := range records {
+			if record.Status == assertion.Response.Status {
+				matched = true
+				break
+			}
+		}
+		if matched {
+			checks = append(checks, passedCheck(name))
+		} else {
+			checks = append(checks, domain.ScenarioCheck{Name: name, Message: "matching response was not observed"})
+		}
+	}
+	return checks
+}
+
+func recordsSince(records []domain.RequestRecord, started time.Time) []domain.RequestRecord {
+	result := make([]domain.RequestRecord, 0, len(records))
+	for _, record := range records {
+		if !record.Timestamp.Before(started) {
+			result = append(result, record)
+		}
+	}
+	return result
+}
+
+func passedCheck(name string) domain.ScenarioCheck {
+	return domain.ScenarioCheck{Name: name, Passed: true}
+}
+
+func failedCheck(name string, err error) domain.ScenarioCheck {
+	return domain.ScenarioCheck{Name: name, Passed: false, Message: err.Error()}
+}
+
+func allPassed(checks []domain.ScenarioCheck) bool {
+	for _, check := range checks {
+		if !check.Passed {
+			return false
+		}
+	}
+	return true
+}

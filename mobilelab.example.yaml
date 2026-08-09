@@ -1,0 +1,32 @@
+project:
+  name: my-mobile-app
+server:
+  host: 127.0.0.1
+  port: 4566
+dashboard:
+  enabled: true
+sandbox:
+  latency: 0
+  error_rate: 0
+auth:
+  enabled: true
+device:
+  auto_detect: true
+variables:
+  userId: "123"
+endpoints:
+  - path: /api/profile
+    method: GET
+    response:
+      status: 200
+      body:
+        id: "{{userId}}"
+        name: MobileLab User
+  - path: /api/payments
+    method: POST
+    protected: true
+    response:
+      status: 200
+      body:
+        success: true
+        transactionId: ABC123
