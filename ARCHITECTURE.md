@@ -84,6 +84,9 @@ SQLite implements the `RequestRepository` and `ScenarioRunRepository` ports in `
 
 - Android invokes only verified `adb` and Android Emulator commands. Discovery combines attached targets with configured AVDs; inactive AVDs use stable `avd:<name>` IDs and a non-blocking process port starts the explicitly selected AVD. Running AVDs are de-duplicated when the emulator console reports their names. App launch/stop, explicit `pm clear`, deep links, and emulator-only location remain capability-gated.
 - iOS invokes `xcrun simctl` only on macOS and reports unavailable capabilities elsewhere. Detected shutdown simulators expose boot; booted simulators expose launch/stop, explicit uninstall-as-clear, deep links, and location. Portable runtime checks preserve cross-platform builds.
+- Device discovery doubles as a runtime capability probe. Android enriches attached targets from a strict property allowlist and promotes emulator-console features only after the console responds. iOS derives metadata and lifecycle capabilities from the current `simctl` inventory. Human-readable and JSON inspection use the same domain snapshot.
+- Android network shaping uses only documented emulator-console delay/speed profiles and is labeled partial because it covers Ethernet/cellular rather than every modern transport. Restoring `online` removes those two constraints. Reliable offline behavior and iOS Simulator conditioning stay explicitly unavailable.
+- Local push is a device port backed only by `simctl push` when that command is runtime-probed. Configuration fixtures become size-limited APNs payloads in owner-private temporary files that are deleted immediately after invocation. Android stays unavailable without a generic official delivery mechanism.
 - SDK/framework adapters are optional outbound integrations and never branch through the core by framework name.
 
 ## Realtime and dashboard

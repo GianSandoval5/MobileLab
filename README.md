@@ -66,6 +66,13 @@ Endpoints are declared in strict YAML. Unknown fields and invalid methods, ports
 variables:
   userId: "123"
 
+push:
+  payment-success:
+    title: Payment completed
+    body: Your payment was processed
+    data:
+      transactionId: ABC123
+
 endpoints:
   - path: /api/users/{id}
     method: GET
@@ -163,11 +170,20 @@ mobilelab device stop --platform android --device emulator-5554 --app-id com.exa
 mobilelab device clear --platform android --device emulator-5554 --app-id com.example.app
 mobilelab device boot --platform android --device avd:Pixel_9_API_35
 mobilelab device boot --platform ios --device <shutdown-simulator-udid>
+mobilelab network slow --platform android --device emulator-5554
+mobilelab network online --platform android --device emulator-5554
+mobilelab push send payment-success --platform ios --device <booted-simulator-udid> --app-id com.example.app
 ```
 
-Android uses the official `adb` and Android Emulator executables. MobileLab resolves them from `PATH`, `ANDROID_HOME`, or `ANDROID_SDK_ROOT`. Configured, inactive AVDs are listed with IDs prefixed by `avd:` and can be started explicitly with `device boot`; a running AVD is represented by its attached `emulator-*` serial instead. Deep links use `adb shell am start`; location uses `adb emu geo fix` and is therefore limited to running emulators. Explicit `device clear` uses `adb shell pm clear` and deletes the selected application's local data. MobileLab does not currently claim device-wide Android network conditioning.
+Android uses the official `adb` and Android Emulator executables. MobileLab resolves them from `PATH`, `ANDROID_HOME`, or `ANDROID_SDK_ROOT`. Configured, inactive AVDs are listed with IDs prefixed by `avd:` and can be started explicitly with `device boot`; a running AVD is represented by its attached `emulator-*` serial instead. Deep links use `adb shell am start`; location uses `adb emu geo fix` and is therefore limited to running emulators. Explicit `device clear` uses `adb shell pm clear` and deletes the selected application's local data.
+
+On a running Android Emulator, `network slow` applies the official `network delay gprs` and `network speed gprs` console profiles; `network online` restores `delay none` and `speed full`. These capabilities are reported `partial` because the emulator documentation limits shaping to Ethernet and cellular traffic, and recent emulator Wi-Fi may use a separate network simulator. `network offline` remains unavailable: MobileLab does not toggle radios or airplane mode and pretend that all transports were disconnected. iOS Simulator network conditioning remains unavailable because `simctl` offers no portable equivalent. See the [Android Emulator console reference](https://developer.android.com/studio/run/emulator-console).
+
+`mobilelab device info` reports runtime metadata as well as the capability matrix. For connected Android devices this includes a safe allowlist of `getprop` values (manufacturer, brand, model, OS/API version, and ABI); emulator-console features become fully available only after a successful runtime probe. For iOS Simulator it includes the CoreSimulator runtime, derived OS version, device type, and last boot time when `simctl` supplies them.
 
 iOS uses `xcrun simctl` and is available only on macOS with Xcode. It supports discovery, simulator boot, app launch/terminate, deep links, and simulator location. On iOS, explicit `device clear` uses `simctl uninstall`, so the selected app is removed rather than merely having its data reset. `simctl` does not provide a portable network-conditioning command, so that capability is reported unavailable.
+
+Push fixtures live under the top-level `push` configuration key. A booted iOS Simulator advertises push only when `simctl help push` succeeds; `push send` then builds a private temporary APNs JSON payload, enforces the 4096-byte simulator limit, and invokes `simctl push` for the explicit bundle ID. Android reports push unavailable because there is no generic official local delivery path without FCM credentials or an app-specific receiver.
 
 For an Android Emulator, `localhost` is the emulator itself. Use `http://10.0.2.2:4566` to reach MobileLab on the development host. iOS Simulator can normally use the host loopback address.
 
@@ -191,8 +207,8 @@ Unit tests cover strict configuration, project detection, secret redaction, fixt
 
 ## Current limitations
 
-- Device selection is first-ready unless `--device` is supplied to `run`; direct deep-link/location commands do not yet expose selection flags.
-- Android/iOS network conditioning and local push delivery are not implemented and are reported unavailable.
+- Scenario device selection is first-ready unless `--device` is supplied; direct device, deep-link, location, network, and push commands accept explicit selectors.
+- Android Emulator Ethernet/cellular latency and speed shaping is partial; reliable offline mode and iOS network conditioning are unavailable. Local push is limited to booted iOS Simulators with supported Xcode tooling.
 - OpenAPI import does not yet support external references, callbacks, GraphQL, gRPC, or sophisticated example generation.
 - Framework SDKs and runnable Flutter/React Native/native example apps are not part of this first slice.
 - SQLite retention/pruning policy and migrations beyond schema v1 are not implemented yet.

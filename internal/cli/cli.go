@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -61,6 +62,10 @@ func (r Runner) Run(ctx context.Context, args []string) error {
 		return r.deepLink(ctx, args[1:])
 	case "location":
 		return r.location(ctx, args[1:])
+	case "network":
+		return r.network(ctx, args[1:])
+	case "push":
+		return r.push(ctx, args[1:])
 	case "device":
 		return r.deviceCommand(ctx, args[1:])
 	case "run":
@@ -277,10 +282,7 @@ func (r Runner) capabilities(ctx context.Context) error {
 	}
 	for _, detected := range devices {
 		fmt.Fprintf(r.Out, "%s (%s)\n", detected.Name, detected.Platform)
-		for _, capability := range []domain.Capability{
-			domain.CapabilityBoot, domain.CapabilityLaunch, domain.CapabilityStop, domain.CapabilityClear, domain.CapabilityDeepLink, domain.CapabilityLocation,
-			domain.CapabilityNetworkOffline, domain.CapabilityNetworkLatency, domain.CapabilityPush,
-		} {
+		for _, capability := range deviceCapabilityOrder() {
 			fmt.Fprintf(r.Out, "  %-18s %s\n", capability, detected.Capabilities[capability])
 		}
 	}
@@ -328,6 +330,74 @@ func (r Runner) location(ctx context.Context, args []string) error {
 	}
 	fmt.Fprintf(r.Out, "Location set on %s.\n", detected.Name)
 	return nil
+}
+
+func (r Runner) network(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: mobilelab network <online|offline|slow> [--platform android|ios] [--device id]")
+	}
+	condition := domain.NetworkCondition(args[0])
+	capability := networkConditionCapability(condition)
+	if capability == "" {
+		return fmt.Errorf("network condition must be online, offline, or slow")
+	}
+	selection, _, err := parseDeviceFlags(args[1:], false, false)
+	if err != nil {
+		return err
+	}
+	adapter, detected, err := r.selectDevice(ctx, selection, capability)
+	if err != nil {
+		return err
+	}
+	if err := adapter.SetNetworkCondition(ctx, detected.ID, condition); err != nil {
+		return fmt.Errorf("unable to set network %s on %s: %w", condition, detected.Name, err)
+	}
+	fmt.Fprintf(r.Out, "Network set to %s on %s.\n", condition, detected.Name)
+	return nil
+}
+
+func (r Runner) push(ctx context.Context, args []string) error {
+	if len(args) < 2 || args[0] != "send" {
+		return fmt.Errorf("usage: mobilelab push send <fixture> --app-id <bundle-id> [--platform ios] [--device id]")
+	}
+	selection, options, err := parseDeviceFlags(args[2:], true, false)
+	if err != nil {
+		return err
+	}
+	if options.AppID == "" {
+		return fmt.Errorf("push send requires --app-id <bundle-id>")
+	}
+	cfg, err := config.Load(filepath.Join(r.Dir, config.DefaultFilename))
+	if err != nil {
+		return err
+	}
+	fixture, exists := cfg.Push[args[1]]
+	if !exists {
+		return fmt.Errorf("push fixture %q was not found in %s", args[1], config.DefaultFilename)
+	}
+	adapter, detected, err := r.selectDevice(ctx, selection, domain.CapabilityPush)
+	if err != nil {
+		return err
+	}
+	notification := domain.PushNotification{Title: fixture.Title, Body: fixture.Body, Data: fixture.Data}
+	if err := adapter.SendPush(ctx, detected.ID, options.AppID, notification); err != nil {
+		return fmt.Errorf("unable to send push %s to %s: %w", args[1], detected.Name, err)
+	}
+	fmt.Fprintf(r.Out, "Push %s sent to %s.\n", args[1], detected.Name)
+	return nil
+}
+
+func networkConditionCapability(condition domain.NetworkCondition) domain.Capability {
+	switch condition {
+	case domain.NetworkOnline:
+		return domain.CapabilityNetworkOnline
+	case domain.NetworkOffline:
+		return domain.CapabilityNetworkOffline
+	case domain.NetworkSlow:
+		return domain.CapabilityNetworkLatency
+	default:
+		return ""
+	}
 }
 
 type deviceSelection struct {
@@ -388,6 +458,21 @@ func (r Runner) deviceCommand(ctx context.Context, args []string) error {
 			return encoder.Encode(detected)
 		}
 		fmt.Fprintf(r.Out, "Device: %s\nPlatform: %s\nID: %s\nState: %s\nEmulator: %t\n", detected.Name, detected.Platform, detected.ID, detected.State, detected.Emulator)
+		if len(detected.Details) > 0 {
+			keys := make([]string, 0, len(detected.Details))
+			for key := range detected.Details {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			fmt.Fprintln(r.Out, "Details:")
+			for _, key := range keys {
+				fmt.Fprintf(r.Out, "  %-22s %s\n", key, detected.Details[key])
+			}
+		}
+		fmt.Fprintln(r.Out, "Capabilities:")
+		for _, capability := range deviceCapabilityOrder() {
+			fmt.Fprintf(r.Out, "  %-22s %s\n", capability, detected.Capabilities[capability])
+		}
 		return nil
 	case "launch", "stop", "clear":
 		selection, options, err := parseDeviceFlags(args[1:], true, false)
@@ -431,6 +516,14 @@ func (r Runner) deviceCommand(ctx context.Context, args []string) error {
 		return nil
 	default:
 		return fmt.Errorf("unknown device command %q; use list, info, launch, stop, clear, or boot", args[0])
+	}
+}
+
+func deviceCapabilityOrder() []domain.Capability {
+	return []domain.Capability{
+		domain.CapabilityBoot, domain.CapabilityLaunch, domain.CapabilityStop, domain.CapabilityClear,
+		domain.CapabilityDeepLink, domain.CapabilityLocation, domain.CapabilityNetworkOnline,
+		domain.CapabilityNetworkOffline, domain.CapabilityNetworkLatency, domain.CapabilityPush,
 	}
 }
 
@@ -677,7 +770,8 @@ func (r Runner) selectDevice(ctx context.Context, selection deviceSelection, cap
 			}
 			copy := detected
 			matchingDevice = &copy
-			if capability == "" || detected.Capabilities[capability] == domain.CapabilityAvailable {
+			level := detected.Capabilities[capability]
+			if capability == "" || level == domain.CapabilityAvailable || level == domain.CapabilityPartial {
 				return adapter, detected, nil
 			}
 		}
@@ -712,6 +806,8 @@ Available commands:
   capabilities Show only capabilities actually available on detected devices
   deeplink   Open a deep link on a ready device
   location   Set emulator/simulator location when supported
+  network    Shape supported emulator network characteristics
+  push       Send a configured local push where supported
   device     List/select devices and control app/device lifecycle
   run        Execute a portable YAML scenario and report PASS/FAIL
   scenario   List, run, and inspect persistent scenario history

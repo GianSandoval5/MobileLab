@@ -24,9 +24,9 @@ Framework SDKs and complete runnable framework applications intentionally begin 
 - [x] app launch, stop, and explicit data clearing/uninstall
 - [x] iOS Simulator boot from a detected shutdown state
 - [x] Android AVD discovery and emulator startup by AVD name
-- [ ] richer device information and runtime capability probes
-- [ ] technically verified platform-specific network controls
-- [ ] local push paths where official tools support them
+- [x] richer device information and runtime capability probes
+- [x] technically verified platform-specific network controls
+- [x] local push paths where official tools support them
 
 ## 0.3 — Framework integrations
 

@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `mobilelab device list|info|launch|stop|clear|boot`, including JSON device inspection.
 - Android app-data clearing through `adb shell pm clear` and iOS Simulator boot/app uninstall through verified `simctl` commands.
 - Android AVD discovery and explicit non-blocking startup by `avd:<name>`, with SDK tool resolution through `PATH`, `ANDROID_HOME`, or `ANDROID_SDK_ROOT`.
+- Rich human-readable/JSON device inspection, safe Android runtime metadata, iOS Simulator metadata, and runtime-probed emulator capabilities.
+- Capability-gated `mobilelab network slow|online|offline`; Android Emulator delay/speed shaping is intentionally partial while unreliable offline and iOS paths remain unavailable.
+- Strict YAML push fixtures and capability-probed local iOS Simulator delivery through `simctl push`, including APNs reserved-key and 4096-byte validation.
 
 ### Fixed
 

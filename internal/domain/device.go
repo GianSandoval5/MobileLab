@@ -52,6 +52,12 @@ const (
 	NetworkSlow    NetworkCondition = "slow"
 )
 
+type PushNotification struct {
+	Title string         `json:"title"`
+	Body  string         `json:"body"`
+	Data  map[string]any `json:"data,omitempty"`
+}
+
 var ErrCapabilityUnavailable = errors.New("capability not available on this platform")
 
 type DeviceAdapter interface {
@@ -64,6 +70,7 @@ type DeviceAdapter interface {
 	OpenDeepLink(context.Context, string, string) error
 	SetLocation(context.Context, string, Location) error
 	SetNetworkCondition(context.Context, string, NetworkCondition) error
+	SendPush(context.Context, string, string, PushNotification) error
 }
 
 type CapabilityError struct {

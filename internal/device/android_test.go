@@ -17,11 +17,29 @@ R58M offline usb:1-1 model:Physical_Phone
 	if len(devices) != 2 {
 		t.Fatalf("got %d devices: %#v", len(devices), devices)
 	}
-	if !devices[0].Emulator || devices[0].Name != "Pixel_9" || devices[0].Capabilities[domain.CapabilityLocation] != domain.CapabilityAvailable {
+	if !devices[0].Emulator || devices[0].Name != "Pixel_9" || devices[0].Capabilities[domain.CapabilityLocation] != domain.CapabilityPartial {
 		t.Fatalf("unexpected emulator: %#v", devices[0])
 	}
 	if devices[1].Capabilities[domain.CapabilityLaunch] != domain.CapabilityUnavailable {
 		t.Fatalf("offline device has launch capability: %#v", devices[1])
+	}
+}
+
+func TestAndroidPropertiesEnrichDeviceInformation(t *testing.T) {
+	properties := parseAndroidProperties(`[ro.product.manufacturer]: [Google]
+[ro.product.model]: [Pixel 10]
+[ro.build.version.release]: [16]
+[ro.build.version.sdk]: [36]
+[ro.product.cpu.abi]: [arm64-v8a]
+[unrelated.secret]: [ignored]
+`)
+	device := domain.Device{Name: "generic", Details: map[string]string{"transport_id": "1"}}
+	enrichAndroidDetails(&device, properties)
+	if device.Name != "Pixel 10" || device.Details["apiLevel"] != "36" || device.Details["abi"] != "arm64-v8a" {
+		t.Fatalf("unexpected enriched device: %#v", device)
+	}
+	if _, leaked := device.Details["unrelated.secret"]; leaked {
+		t.Fatalf("unexpected property leaked: %#v", device.Details)
 	}
 }
 
@@ -99,10 +117,33 @@ func TestAndroidBootRejectsAttachedDeviceID(t *testing.T) {
 	}
 }
 
+func TestAndroidNetworkSlowUsesOfficialEmulatorConsoleCommands(t *testing.T) {
+	runner := &fakeRunner{path: "/sdk/adb"}
+	adapter := NewAndroidAdapter(runner)
+	if err := adapter.SetNetworkCondition(context.Background(), "emulator-5554", domain.NetworkSlow); err != nil {
+		t.Fatal(err)
+	}
+	want := [][]string{
+		{"-s", "emulator-5554", "emu", "network", "delay", "gprs"},
+		{"-s", "emulator-5554", "emu", "network", "speed", "gprs"},
+	}
+	if !reflect.DeepEqual(runner.calls, want) {
+		t.Fatalf("calls = %v, want %v", runner.calls, want)
+	}
+}
+
+func TestAndroidNetworkOfflineRemainsUnavailable(t *testing.T) {
+	adapter := NewAndroidAdapter(&fakeRunner{path: "/sdk/adb"})
+	if err := adapter.SetNetworkCondition(context.Background(), "emulator-5554", domain.NetworkOffline); err == nil {
+		t.Fatal("expected offline to remain unavailable")
+	}
+}
+
 type fakeRunner struct {
 	path    string
 	output  []byte
 	args    []string
+	calls   [][]string
 	err     error
 	started bool
 }
@@ -116,5 +157,6 @@ func (f *fakeRunner) Start(_ context.Context, _ string, args ...string) error {
 func (f *fakeRunner) LookPath(string) (string, error) { return f.path, f.err }
 func (f *fakeRunner) Run(_ context.Context, _ string, args ...string) ([]byte, error) {
 	f.args = append([]string(nil), args...)
+	f.calls = append(f.calls, append([]string(nil), args...))
 	return f.output, f.err
 }

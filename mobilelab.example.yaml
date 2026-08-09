@@ -14,6 +14,12 @@ device:
   auto_detect: true
 variables:
   userId: "123"
+push:
+  payment-success:
+    title: Payment completed
+    body: Your payment was processed
+    data:
+      transactionId: ABC123
 endpoints:
   - path: /api/profile
     method: GET

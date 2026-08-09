@@ -55,6 +55,10 @@ func (f *FakeAdapter) SetNetworkCondition(_ context.Context, deviceID string, co
 	return f.record("network:" + deviceID + ":" + string(condition))
 }
 
+func (f *FakeAdapter) SendPush(_ context.Context, deviceID, appID string, _ domain.PushNotification) error {
+	return f.record("push:" + deviceID + ":" + appID)
+}
+
 func (f *FakeAdapter) record(operation string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

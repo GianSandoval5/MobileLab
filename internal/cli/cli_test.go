@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mobilelab-dev/mobilelab/internal/config"
 	"github.com/mobilelab-dev/mobilelab/internal/device"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 )
@@ -103,5 +104,88 @@ func TestDeviceBootRequiresAdvertisedCapability(t *testing.T) {
 	}
 	if len(adapter.Operations) != 0 {
 		t.Fatalf("unsupported boot was executed: %v", adapter.Operations)
+	}
+}
+
+func TestDeviceInfoPrintsSortedDetailsAndCapabilities(t *testing.T) {
+	adapter := &device.FakeAdapter{
+		PlatformName: "android",
+		Devices: []domain.Device{{
+			ID: "emulator-5554", Name: "Pixel", Platform: "android", State: "device", Emulator: true,
+			Details:      map[string]string{"osVersion": "16", "abi": "arm64-v8a"},
+			Capabilities: map[domain.Capability]domain.CapabilityLevel{domain.CapabilityLaunch: domain.CapabilityAvailable},
+		}},
+	}
+	var output bytes.Buffer
+	runner := New(&output, &output, t.TempDir())
+	runner.DeviceAdapters = []domain.DeviceAdapter{adapter}
+	if err := runner.Run(context.Background(), []string{"device", "info", "--device", "emulator-5554"}); err != nil {
+		t.Fatal(err)
+	}
+	got := output.String()
+	if !strings.Contains(got, "Details:") || !strings.Contains(got, "abi") || !strings.Contains(got, "osVersion") || !strings.Contains(got, "Capabilities:") {
+		t.Fatalf("incomplete device info: %q", got)
+	}
+	if strings.Index(got, "abi") > strings.Index(got, "osVersion") {
+		t.Fatalf("details are not sorted: %q", got)
+	}
+}
+
+func TestNetworkSlowExecutesPartialCapability(t *testing.T) {
+	adapter := &device.FakeAdapter{
+		PlatformName: "android",
+		Devices: []domain.Device{{
+			ID: "emulator-5554", Name: "Pixel", Platform: "android", State: "device",
+			Capabilities: map[domain.Capability]domain.CapabilityLevel{domain.CapabilityNetworkLatency: domain.CapabilityPartial},
+		}},
+	}
+	runner := New(&bytes.Buffer{}, &bytes.Buffer{}, t.TempDir())
+	runner.DeviceAdapters = []domain.DeviceAdapter{adapter}
+	if err := runner.Run(context.Background(), []string{"network", "slow", "--device", "emulator-5554"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(adapter.Operations) != 1 || adapter.Operations[0] != "network:emulator-5554:slow" {
+		t.Fatalf("unexpected operations: %v", adapter.Operations)
+	}
+}
+
+func TestNetworkOfflineRejectsUnadvertisedCapability(t *testing.T) {
+	adapter := &device.FakeAdapter{
+		PlatformName: "android",
+		Devices: []domain.Device{{
+			ID: "emulator-5554", Name: "Pixel", Platform: "android", State: "device",
+			Capabilities: map[domain.Capability]domain.CapabilityLevel{domain.CapabilityNetworkOffline: domain.CapabilityUnavailable},
+		}},
+	}
+	runner := New(&bytes.Buffer{}, &bytes.Buffer{}, t.TempDir())
+	runner.DeviceAdapters = []domain.DeviceAdapter{adapter}
+	if err := runner.Run(context.Background(), []string{"network", "offline", "--device", "emulator-5554"}); err == nil {
+		t.Fatal("expected unavailable offline capability")
+	}
+	if len(adapter.Operations) != 0 {
+		t.Fatalf("unsupported network operation ran: %v", adapter.Operations)
+	}
+}
+
+func TestPushSendLoadsFixtureAndUsesSelectedSimulator(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Default("sample")
+	if err := config.Write(filepath.Join(root, config.DefaultFilename), cfg); err != nil {
+		t.Fatal(err)
+	}
+	adapter := &device.FakeAdapter{
+		PlatformName: "ios",
+		Devices: []domain.Device{{
+			ID: "ios-1", Name: "iPhone", Platform: "ios", State: "Booted",
+			Capabilities: map[domain.Capability]domain.CapabilityLevel{domain.CapabilityPush: domain.CapabilityAvailable},
+		}},
+	}
+	runner := New(&bytes.Buffer{}, &bytes.Buffer{}, root)
+	runner.DeviceAdapters = []domain.DeviceAdapter{adapter}
+	if err := runner.Run(context.Background(), []string{"push", "send", "payment-success", "--platform", "ios", "--device", "ios-1", "--app-id", "dev.mobilelab.app"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(adapter.Operations) != 1 || adapter.Operations[0] != "push:ios-1:dev.mobilelab.app" {
+		t.Fatalf("unexpected push operations: %v", adapter.Operations)
 	}
 }

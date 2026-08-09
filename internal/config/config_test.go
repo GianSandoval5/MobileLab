@@ -78,3 +78,13 @@ func TestValidateCollectsActionableErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestValidatePushFixtures(t *testing.T) {
+	cfg := Default("sample")
+	cfg.Push["empty"] = PushFixture{}
+	cfg.Push["reserved"] = PushFixture{Body: "Hello", Data: map[string]any{"aps": "override"}}
+	err := cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "push.empty") || !strings.Contains(err.Error(), "reserved") {
+		t.Fatalf("unexpected push validation error: %v", err)
+	}
+}

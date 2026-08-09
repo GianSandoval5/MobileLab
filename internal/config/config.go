@@ -15,14 +15,15 @@ import (
 const DefaultFilename = "mobilelab.yaml"
 
 type Config struct {
-	Project   ProjectConfig        `yaml:"project"`
-	Server    ServerConfig         `yaml:"server"`
-	Dashboard DashboardConfig      `yaml:"dashboard"`
-	Sandbox   SandboxConfig        `yaml:"sandbox"`
-	Auth      AuthConfig           `yaml:"auth"`
-	Device    DeviceConfig         `yaml:"device"`
-	Variables map[string]string    `yaml:"variables,omitempty"`
-	Endpoints []EndpointDefinition `yaml:"endpoints"`
+	Project   ProjectConfig          `yaml:"project"`
+	Server    ServerConfig           `yaml:"server"`
+	Dashboard DashboardConfig        `yaml:"dashboard"`
+	Sandbox   SandboxConfig          `yaml:"sandbox"`
+	Auth      AuthConfig             `yaml:"auth"`
+	Device    DeviceConfig           `yaml:"device"`
+	Variables map[string]string      `yaml:"variables,omitempty"`
+	Push      map[string]PushFixture `yaml:"push,omitempty"`
+	Endpoints []EndpointDefinition   `yaml:"endpoints"`
 }
 
 type ProjectConfig struct {
@@ -49,6 +50,12 @@ type AuthConfig struct {
 
 type DeviceConfig struct {
 	AutoDetect bool `yaml:"auto_detect"`
+}
+
+type PushFixture struct {
+	Title string         `yaml:"title"`
+	Body  string         `yaml:"body"`
+	Data  map[string]any `yaml:"data,omitempty"`
 }
 
 type EndpointDefinition struct {
@@ -82,6 +89,13 @@ func Default(projectName string) Config {
 		Auth:      AuthConfig{Enabled: true},
 		Device:    DeviceConfig{AutoDetect: true},
 		Variables: map[string]string{"userId": "123"},
+		Push: map[string]PushFixture{
+			"payment-success": {
+				Title: "Payment completed",
+				Body:  "Your payment was processed",
+				Data:  map[string]any{"transactionId": "ABC123"},
+			},
+		},
 		Endpoints: []EndpointDefinition{{
 			Path:   "/api/profile",
 			Method: http.MethodGet,
@@ -142,6 +156,17 @@ func (c Config) Validate() error {
 	}
 	if c.Sandbox.ErrorRate < 0 || c.Sandbox.ErrorRate > 100 {
 		problems = append(problems, errors.New("sandbox.error_rate must be between 0 and 100"))
+	}
+	for name, fixture := range c.Push {
+		if strings.TrimSpace(name) == "" {
+			problems = append(problems, errors.New("push fixture name cannot be empty"))
+		}
+		if strings.TrimSpace(fixture.Title) == "" && strings.TrimSpace(fixture.Body) == "" {
+			problems = append(problems, fmt.Errorf("push.%s requires title or body", name))
+		}
+		if _, reserved := fixture.Data["aps"]; reserved {
+			problems = append(problems, fmt.Errorf("push.%s.data key %q is reserved", name, "aps"))
+		}
 	}
 
 	seen := make(map[string]struct{}, len(c.Endpoints))
