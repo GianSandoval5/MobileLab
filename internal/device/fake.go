@@ -9,13 +9,19 @@ import (
 )
 
 type FakeAdapter struct {
-	mu         sync.Mutex
-	Devices    []domain.Device
-	Operations []string
-	Error      error
+	mu           sync.Mutex
+	PlatformName string
+	Devices      []domain.Device
+	Operations   []string
+	Error        error
 }
 
-func (f *FakeAdapter) Platform() string { return "fake" }
+func (f *FakeAdapter) Platform() string {
+	if f.PlatformName != "" {
+		return f.PlatformName
+	}
+	return "fake"
+}
 
 func (f *FakeAdapter) Detect(context.Context) ([]domain.Device, error) {
 	return append([]domain.Device(nil), f.Devices...), f.Error
@@ -27,6 +33,14 @@ func (f *FakeAdapter) LaunchApp(_ context.Context, deviceID, appID string) error
 
 func (f *FakeAdapter) StopApp(_ context.Context, deviceID, appID string) error {
 	return f.record("stop:" + deviceID + ":" + appID)
+}
+
+func (f *FakeAdapter) ClearApp(_ context.Context, deviceID, appID string) error {
+	return f.record("clear:" + deviceID + ":" + appID)
+}
+
+func (f *FakeAdapter) BootDevice(_ context.Context, deviceID string) error {
+	return f.record("boot:" + deviceID)
 }
 
 func (f *FakeAdapter) OpenDeepLink(_ context.Context, deviceID, value string) error {

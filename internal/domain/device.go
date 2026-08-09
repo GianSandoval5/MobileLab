@@ -11,6 +11,8 @@ type Capability string
 const (
 	CapabilityLaunch         Capability = "launch"
 	CapabilityStop           Capability = "stop"
+	CapabilityClear          Capability = "clear"
+	CapabilityBoot           Capability = "boot"
 	CapabilityDeepLink       Capability = "deepLink"
 	CapabilityLocation       Capability = "location"
 	CapabilityNetworkOnline  Capability = "networkOnline"
@@ -57,6 +59,8 @@ type DeviceAdapter interface {
 	Detect(context.Context) ([]Device, error)
 	LaunchApp(context.Context, string, string) error
 	StopApp(context.Context, string, string) error
+	ClearApp(context.Context, string, string) error
+	BootDevice(context.Context, string) error
 	OpenDeepLink(context.Context, string, string) error
 	SetLocation(context.Context, string, Location) error
 	SetNetworkCondition(context.Context, string, NetworkCondition) error

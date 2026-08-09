@@ -156,11 +156,17 @@ mobilelab detect
 mobilelab capabilities
 mobilelab deeplink open 'myapp://payments/123'
 mobilelab location set -5.1945 -80.6328
+mobilelab device list
+mobilelab device info --platform ios --device <simulator-udid> --json
+mobilelab device launch --platform android --device emulator-5554 --app-id com.example.app
+mobilelab device stop --platform android --device emulator-5554 --app-id com.example.app
+mobilelab device clear --platform android --device emulator-5554 --app-id com.example.app
+mobilelab device boot --platform ios --device <shutdown-simulator-udid>
 ```
 
-Android uses `adb`. Deep links use `adb shell am start`; location uses `adb emu geo fix` and is therefore limited to emulators. MobileLab does not currently claim device-wide Android network conditioning.
+Android uses `adb`. Deep links use `adb shell am start`; location uses `adb emu geo fix` and is therefore limited to emulators. Explicit `device clear` uses `adb shell pm clear` and deletes the selected application's local data. Starting an Android emulator is not yet advertised because it requires AVD discovery rather than an attached-device ID. MobileLab does not currently claim device-wide Android network conditioning.
 
-iOS uses `xcrun simctl` and is available only on macOS with Xcode. It supports discovery, launch/terminate through scenarios, deep links, and simulator location. `simctl` does not provide a portable network-conditioning command, so that capability is reported unavailable.
+iOS uses `xcrun simctl` and is available only on macOS with Xcode. It supports discovery, simulator boot, app launch/terminate, deep links, and simulator location. On iOS, explicit `device clear` uses `simctl uninstall`, so the selected app is removed rather than merely having its data reset. `simctl` does not provide a portable network-conditioning command, so that capability is reported unavailable.
 
 For an Android Emulator, `localhost` is the emulator itself. Use `http://10.0.2.2:4566` to reach MobileLab on the development host. iOS Simulator can normally use the host loopback address.
 

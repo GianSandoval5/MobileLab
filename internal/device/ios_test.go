@@ -19,3 +19,17 @@ func TestParseSimctlDevices(t *testing.T) {
 		t.Fatalf("booted simulator lacks deep link capability: %#v", devices[0])
 	}
 }
+
+func TestParseSimctlShutdownDeviceExposesOnlyBootLifecycle(t *testing.T) {
+	payload := []byte(`{"devices":{"runtime":[{"udid":"A-2","name":"iPhone 16","state":"Shutdown","isAvailable":true}]}}`)
+	devices, err := parseSimctlDevices(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(devices) != 1 || devices[0].Capabilities[domain.CapabilityBoot] != domain.CapabilityAvailable {
+		t.Fatalf("shutdown simulator lacks boot capability: %#v", devices)
+	}
+	if devices[0].Capabilities[domain.CapabilityLaunch] != domain.CapabilityUnavailable {
+		t.Fatalf("shutdown simulator incorrectly reports launch: %#v", devices[0])
+	}
+}

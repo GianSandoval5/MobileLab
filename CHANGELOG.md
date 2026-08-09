@@ -6,9 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Explicit `--platform` and `--device` selection for deep links, location, and new device lifecycle commands.
+- `mobilelab device list|info|launch|stop|clear|boot`, including JSON device inspection.
+- Android app-data clearing through `adb shell pm clear` and iOS Simulator boot/app uninstall through verified `simctl` commands.
+
 ### Fixed
 
 - Updated GitHub Actions to their Node 24 generations and made release publication pass the repository explicitly when running without a checkout.
+- Device command errors now report the capability actually requested instead of always naming app launch.
 
 ## [0.1.0] - 2026-08-09
 

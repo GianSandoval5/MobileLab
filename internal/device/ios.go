@@ -37,33 +37,44 @@ func (a *IOSAdapter) Detect(ctx context.Context) ([]domain.Device, error) {
 }
 
 func (a *IOSAdapter) LaunchApp(ctx context.Context, deviceID, appID string) error {
-	return a.runSimctl(ctx, "launch", deviceID, appID)
+	return a.runSimctl(ctx, domain.CapabilityLaunch, "launch", deviceID, appID)
 }
 
 func (a *IOSAdapter) StopApp(ctx context.Context, deviceID, appID string) error {
-	return a.runSimctl(ctx, "terminate", deviceID, appID)
+	return a.runSimctl(ctx, domain.CapabilityStop, "terminate", deviceID, appID)
+}
+
+func (a *IOSAdapter) ClearApp(ctx context.Context, deviceID, appID string) error {
+	if strings.TrimSpace(appID) == "" {
+		return fmt.Errorf("iOS bundle ID is required")
+	}
+	return a.runSimctl(ctx, domain.CapabilityClear, "uninstall", deviceID, appID)
+}
+
+func (a *IOSAdapter) BootDevice(ctx context.Context, deviceID string) error {
+	return a.runSimctl(ctx, domain.CapabilityBoot, "boot", deviceID)
 }
 
 func (a *IOSAdapter) OpenDeepLink(ctx context.Context, deviceID, value string) error {
-	return a.runSimctl(ctx, "openurl", deviceID, value)
+	return a.runSimctl(ctx, domain.CapabilityDeepLink, "openurl", deviceID, value)
 }
 
 func (a *IOSAdapter) SetLocation(ctx context.Context, deviceID string, location domain.Location) error {
 	value := strconv.FormatFloat(location.Latitude, 'f', 6, 64) + "," + strconv.FormatFloat(location.Longitude, 'f', 6, 64)
-	return a.runSimctl(ctx, "location", deviceID, "set", value)
+	return a.runSimctl(ctx, domain.CapabilityLocation, "location", deviceID, "set", value)
 }
 
 func (a *IOSAdapter) SetNetworkCondition(context.Context, string, domain.NetworkCondition) error {
 	return domain.CapabilityError{Platform: a.Platform(), Capability: domain.CapabilityNetworkOffline, Reason: "simctl does not provide portable network conditioning"}
 }
 
-func (a *IOSAdapter) runSimctl(ctx context.Context, args ...string) error {
+func (a *IOSAdapter) runSimctl(ctx context.Context, capability domain.Capability, args ...string) error {
 	if goruntime.GOOS != "darwin" {
-		return domain.CapabilityError{Platform: a.Platform(), Capability: domain.CapabilityLaunch, Reason: "iOS tooling requires macOS and Xcode"}
+		return domain.CapabilityError{Platform: a.Platform(), Capability: capability, Reason: "iOS tooling requires macOS and Xcode"}
 	}
 	xcrun, err := a.runner.LookPath("xcrun")
 	if err != nil {
-		return domain.CapabilityError{Platform: a.Platform(), Capability: domain.CapabilityLaunch, Reason: "xcrun was not found"}
+		return domain.CapabilityError{Platform: a.Platform(), Capability: capability, Reason: "xcrun was not found"}
 	}
 	_, err = a.runner.Run(ctx, xcrun, append([]string{"simctl"}, args...)...)
 	return err
@@ -91,11 +102,15 @@ func parseSimctlDevices(output []byte) ([]domain.Device, error) {
 			if strings.EqualFold(candidate.State, "Booted") {
 				level = domain.CapabilityAvailable
 			}
+			boot := domain.CapabilityUnavailable
+			if strings.EqualFold(candidate.State, "Shutdown") {
+				boot = domain.CapabilityAvailable
+			}
 			devices = append(devices, domain.Device{
 				ID: candidate.UDID, Name: candidate.Name, Platform: "ios", Emulator: true, State: candidate.State,
 				Details: map[string]string{"runtime": runtimeName},
 				Capabilities: map[domain.Capability]domain.CapabilityLevel{
-					domain.CapabilityLaunch: level, domain.CapabilityStop: level, domain.CapabilityDeepLink: level,
+					domain.CapabilityLaunch: level, domain.CapabilityStop: level, domain.CapabilityClear: level, domain.CapabilityBoot: boot, domain.CapabilityDeepLink: level,
 					domain.CapabilityLocation: level, domain.CapabilityNetworkOffline: domain.CapabilityUnavailable,
 					domain.CapabilityNetworkLatency: domain.CapabilityUnavailable, domain.CapabilityPush: domain.CapabilityUnavailable,
 				},

@@ -37,21 +37,32 @@ func (a *AndroidAdapter) LaunchApp(ctx context.Context, deviceID, appID string) 
 	if strings.TrimSpace(appID) == "" {
 		return fmt.Errorf("Android application ID is required")
 	}
-	return a.runADB(ctx, deviceID, "shell", "monkey", "-p", appID, "-c", "android.intent.category.LAUNCHER", "1")
+	return a.runADB(ctx, domain.CapabilityLaunch, deviceID, "shell", "monkey", "-p", appID, "-c", "android.intent.category.LAUNCHER", "1")
 }
 
 func (a *AndroidAdapter) StopApp(ctx context.Context, deviceID, appID string) error {
 	if strings.TrimSpace(appID) == "" {
 		return fmt.Errorf("Android application ID is required")
 	}
-	return a.runADB(ctx, deviceID, "shell", "am", "force-stop", appID)
+	return a.runADB(ctx, domain.CapabilityStop, deviceID, "shell", "am", "force-stop", appID)
+}
+
+func (a *AndroidAdapter) ClearApp(ctx context.Context, deviceID, appID string) error {
+	if strings.TrimSpace(appID) == "" {
+		return fmt.Errorf("Android application ID is required")
+	}
+	return a.runADB(ctx, domain.CapabilityClear, deviceID, "shell", "pm", "clear", appID)
+}
+
+func (a *AndroidAdapter) BootDevice(context.Context, string) error {
+	return domain.CapabilityError{Platform: a.Platform(), Capability: domain.CapabilityBoot, Reason: "starting an Android emulator requires an AVD name, not an attached device ID"}
 }
 
 func (a *AndroidAdapter) OpenDeepLink(ctx context.Context, deviceID, value string) error {
 	if _, err := url.ParseRequestURI(value); err != nil {
 		return fmt.Errorf("invalid deep link %q: %w", value, err)
 	}
-	return a.runADB(ctx, deviceID, "shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", value)
+	return a.runADB(ctx, domain.CapabilityDeepLink, deviceID, "shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", value)
 }
 
 func (a *AndroidAdapter) SetLocation(ctx context.Context, deviceID string, location domain.Location) error {
@@ -60,17 +71,17 @@ func (a *AndroidAdapter) SetLocation(ctx context.Context, deviceID string, locat
 	}
 	longitude := strconv.FormatFloat(location.Longitude, 'f', 6, 64)
 	latitude := strconv.FormatFloat(location.Latitude, 'f', 6, 64)
-	return a.runADB(ctx, deviceID, "emu", "geo", "fix", longitude, latitude)
+	return a.runADB(ctx, domain.CapabilityLocation, deviceID, "emu", "geo", "fix", longitude, latitude)
 }
 
 func (a *AndroidAdapter) SetNetworkCondition(context.Context, string, domain.NetworkCondition) error {
 	return domain.CapabilityError{Platform: a.Platform(), Capability: domain.CapabilityNetworkOffline, Reason: "reliable device-wide network control is not implemented"}
 }
 
-func (a *AndroidAdapter) runADB(ctx context.Context, deviceID string, args ...string) error {
+func (a *AndroidAdapter) runADB(ctx context.Context, capability domain.Capability, deviceID string, args ...string) error {
 	adb, err := a.runner.LookPath("adb")
 	if err != nil {
-		return domain.CapabilityError{Platform: a.Platform(), Capability: domain.CapabilityLaunch, Reason: "adb was not found"}
+		return domain.CapabilityError{Platform: a.Platform(), Capability: capability, Reason: "adb was not found"}
 	}
 	if deviceID != "" {
 		args = append([]string{"-s", deviceID}, args...)
@@ -114,7 +125,7 @@ func parseADBDevices(output string) []domain.Device {
 		devices = append(devices, domain.Device{
 			ID: fields[0], Name: name, Platform: "android", Emulator: emulator, State: fields[1], Details: details,
 			Capabilities: map[domain.Capability]domain.CapabilityLevel{
-				domain.CapabilityLaunch: level, domain.CapabilityStop: level, domain.CapabilityDeepLink: level,
+				domain.CapabilityLaunch: level, domain.CapabilityStop: level, domain.CapabilityClear: level, domain.CapabilityBoot: domain.CapabilityUnavailable, domain.CapabilityDeepLink: level,
 				domain.CapabilityLocation: location, domain.CapabilityNetworkOffline: domain.CapabilityUnavailable,
 				domain.CapabilityNetworkLatency: domain.CapabilityUnavailable, domain.CapabilityPush: domain.CapabilityUnavailable,
 			},

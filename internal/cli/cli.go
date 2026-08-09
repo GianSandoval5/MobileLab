@@ -24,12 +24,13 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/scenario"
 )
 
-var Version = "0.1.0-dev"
+var Version = "0.2.0-dev"
 
 type Runner struct {
-	Out io.Writer
-	Err io.Writer
-	Dir string
+	Out            io.Writer
+	Err            io.Writer
+	Dir            string
+	DeviceAdapters []domain.DeviceAdapter
 }
 
 func New(out, errOut io.Writer, dir string) Runner {
@@ -60,6 +61,8 @@ func (r Runner) Run(ctx context.Context, args []string) error {
 		return r.deepLink(ctx, args[1:])
 	case "location":
 		return r.location(ctx, args[1:])
+	case "device":
+		return r.deviceCommand(ctx, args[1:])
 	case "run":
 		return r.runScenario(ctx, args[1:])
 	case "scenario":
@@ -275,7 +278,7 @@ func (r Runner) capabilities(ctx context.Context) error {
 	for _, detected := range devices {
 		fmt.Fprintf(r.Out, "%s (%s)\n", detected.Name, detected.Platform)
 		for _, capability := range []domain.Capability{
-			domain.CapabilityLaunch, domain.CapabilityStop, domain.CapabilityDeepLink, domain.CapabilityLocation,
+			domain.CapabilityBoot, domain.CapabilityLaunch, domain.CapabilityStop, domain.CapabilityClear, domain.CapabilityDeepLink, domain.CapabilityLocation,
 			domain.CapabilityNetworkOffline, domain.CapabilityNetworkLatency, domain.CapabilityPush,
 		} {
 			fmt.Fprintf(r.Out, "  %-18s %s\n", capability, detected.Capabilities[capability])
@@ -285,10 +288,14 @@ func (r Runner) capabilities(ctx context.Context) error {
 }
 
 func (r Runner) deepLink(ctx context.Context, args []string) error {
-	if len(args) != 2 || args[0] != "open" {
-		return fmt.Errorf("usage: mobilelab deeplink open <url>")
+	if len(args) < 2 || args[0] != "open" {
+		return fmt.Errorf("usage: mobilelab deeplink open <url> [--platform android|ios] [--device id]")
 	}
-	adapter, detected, err := r.firstDevice(ctx)
+	selection, _, err := parseDeviceFlags(args[2:], false, false)
+	if err != nil {
+		return err
+	}
+	adapter, detected, err := r.selectDevice(ctx, selection, domain.CapabilityDeepLink)
 	if err != nil {
 		return err
 	}
@@ -300,15 +307,19 @@ func (r Runner) deepLink(ctx context.Context, args []string) error {
 }
 
 func (r Runner) location(ctx context.Context, args []string) error {
-	if len(args) != 3 || args[0] != "set" {
-		return fmt.Errorf("usage: mobilelab location set <latitude> <longitude>")
+	if len(args) < 3 || args[0] != "set" {
+		return fmt.Errorf("usage: mobilelab location set <latitude> <longitude> [--platform android|ios] [--device id]")
 	}
 	latitude, latErr := strconv.ParseFloat(args[1], 64)
 	longitude, lonErr := strconv.ParseFloat(args[2], 64)
 	if latErr != nil || lonErr != nil || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 {
 		return fmt.Errorf("latitude must be -90..90 and longitude must be -180..180")
 	}
-	adapter, detected, err := r.firstDevice(ctx)
+	selection, _, err := parseDeviceFlags(args[3:], false, false)
+	if err != nil {
+		return err
+	}
+	adapter, detected, err := r.selectDevice(ctx, selection, domain.CapabilityLocation)
 	if err != nil {
 		return err
 	}
@@ -317,6 +328,143 @@ func (r Runner) location(ctx context.Context, args []string) error {
 	}
 	fmt.Fprintf(r.Out, "Location set on %s.\n", detected.Name)
 	return nil
+}
+
+type deviceSelection struct {
+	Platform string
+	ID       string
+}
+
+type deviceCommandOptions struct {
+	Selection deviceSelection
+	AppID     string
+	JSON      bool
+}
+
+func (r Runner) deviceCommand(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: mobilelab device list | info | launch | stop | clear | boot")
+	}
+	switch args[0] {
+	case "list":
+		selection, options, err := parseDeviceFlags(args[1:], false, true)
+		if err != nil {
+			return err
+		}
+		devices := r.devices(ctx)
+		filtered := devices[:0]
+		for _, detected := range devices {
+			platformMatches := selection.Platform == "" || detected.Platform == selection.Platform
+			deviceMatches := selection.ID == "" || detected.ID == selection.ID
+			if platformMatches && deviceMatches {
+				filtered = append(filtered, detected)
+			}
+		}
+		if options.JSON {
+			encoder := json.NewEncoder(r.Out)
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(filtered)
+		}
+		if len(filtered) == 0 {
+			fmt.Fprintln(r.Out, "No devices detected.")
+			return nil
+		}
+		for _, detected := range filtered {
+			fmt.Fprintf(r.Out, "%-8s %-24s %-38s %s\n", detected.Platform, detected.Name, detected.ID, detected.State)
+		}
+		return nil
+	case "info":
+		selection, options, err := parseDeviceFlags(args[1:], false, true)
+		if err != nil {
+			return err
+		}
+		_, detected, err := r.selectDevice(ctx, selection, "")
+		if err != nil {
+			return err
+		}
+		if options.JSON {
+			encoder := json.NewEncoder(r.Out)
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(detected)
+		}
+		fmt.Fprintf(r.Out, "Device: %s\nPlatform: %s\nID: %s\nState: %s\nEmulator: %t\n", detected.Name, detected.Platform, detected.ID, detected.State, detected.Emulator)
+		return nil
+	case "launch", "stop", "clear":
+		selection, options, err := parseDeviceFlags(args[1:], true, false)
+		if err != nil {
+			return err
+		}
+		if options.AppID == "" {
+			return fmt.Errorf("device %s requires --app-id <application-id>", args[0])
+		}
+		capability := map[string]domain.Capability{"launch": domain.CapabilityLaunch, "stop": domain.CapabilityStop, "clear": domain.CapabilityClear}[args[0]]
+		adapter, detected, err := r.selectDevice(ctx, selection, capability)
+		if err != nil {
+			return err
+		}
+		switch args[0] {
+		case "launch":
+			err = adapter.LaunchApp(ctx, detected.ID, options.AppID)
+		case "stop":
+			err = adapter.StopApp(ctx, detected.ID, options.AppID)
+		case "clear":
+			err = adapter.ClearApp(ctx, detected.ID, options.AppID)
+		}
+		if err != nil {
+			return fmt.Errorf("device %s failed on %s: %w", args[0], detected.Name, err)
+		}
+		fmt.Fprintf(r.Out, "Device %s completed on %s.\n", args[0], detected.Name)
+		return nil
+	case "boot":
+		selection, _, err := parseDeviceFlags(args[1:], false, false)
+		if err != nil {
+			return err
+		}
+		adapter, detected, err := r.selectDevice(ctx, selection, domain.CapabilityBoot)
+		if err != nil {
+			return err
+		}
+		if err := adapter.BootDevice(ctx, detected.ID); err != nil {
+			return fmt.Errorf("boot device %s: %w", detected.Name, err)
+		}
+		fmt.Fprintf(r.Out, "Boot requested for %s.\n", detected.Name)
+		return nil
+	default:
+		return fmt.Errorf("unknown device command %q; use list, info, launch, stop, clear, or boot", args[0])
+	}
+}
+
+func parseDeviceFlags(args []string, allowAppID, allowJSON bool) (deviceSelection, deviceCommandOptions, error) {
+	options := deviceCommandOptions{}
+	for index := 0; index < len(args); index++ {
+		flag := args[index]
+		if flag == "--json" && allowJSON {
+			options.JSON = true
+			continue
+		}
+		if index+1 >= len(args) {
+			return deviceSelection{}, deviceCommandOptions{}, fmt.Errorf("option %q requires a value", flag)
+		}
+		value := args[index+1]
+		index++
+		switch flag {
+		case "--platform":
+			if value != "android" && value != "ios" {
+				return deviceSelection{}, deviceCommandOptions{}, fmt.Errorf("platform must be android or ios")
+			}
+			options.Selection.Platform = value
+		case "--device":
+			options.Selection.ID = value
+		case "--app-id":
+			if !allowAppID {
+				return deviceSelection{}, deviceCommandOptions{}, fmt.Errorf("option --app-id is not valid for this command")
+			}
+			options.AppID = value
+		default:
+			return deviceSelection{}, deviceCommandOptions{}, fmt.Errorf("unknown device option %q", flag)
+		}
+	}
+	return options.Selection, options, nil
 }
 
 func (r Runner) runScenario(ctx context.Context, args []string) error {
@@ -493,6 +641,9 @@ func (r Runner) scenarioDevice(ctx context.Context, definition domain.ScenarioDe
 }
 
 func (r Runner) adapters() []domain.DeviceAdapter {
+	if r.DeviceAdapters != nil {
+		return r.DeviceAdapters
+	}
 	runner := device.ExecRunner{}
 	return []domain.DeviceAdapter{device.NewAndroidAdapter(runner), device.NewIOSAdapter(runner)}
 }
@@ -510,19 +661,37 @@ func (r Runner) devices(ctx context.Context) []domain.Device {
 	return result
 }
 
-func (r Runner) firstDevice(ctx context.Context) (domain.DeviceAdapter, domain.Device, error) {
+func (r Runner) selectDevice(ctx context.Context, selection deviceSelection, capability domain.Capability) (domain.DeviceAdapter, domain.Device, error) {
+	var matchingDevice *domain.Device
 	for _, adapter := range r.adapters() {
-		devices, err := adapter.Detect(ctx)
-		if err != nil {
+		if selection.Platform != "" && adapter.Platform() != selection.Platform {
 			continue
 		}
+		devices, err := adapter.Detect(ctx)
+		if err != nil {
+			return nil, domain.Device{}, fmt.Errorf("detect %s devices: %w", adapter.Platform(), err)
+		}
 		for _, detected := range devices {
-			if detected.State == "device" || strings.EqualFold(detected.State, "Booted") {
+			if selection.ID != "" && detected.ID != selection.ID {
+				continue
+			}
+			copy := detected
+			matchingDevice = &copy
+			if capability == "" || detected.Capabilities[capability] == domain.CapabilityAvailable {
 				return adapter, detected, nil
 			}
 		}
 	}
-	return nil, domain.Device{}, fmt.Errorf("no ready Android device or iOS simulator found; run 'mobilelab detect'")
+	if matchingDevice != nil {
+		return nil, domain.Device{}, fmt.Errorf("%s is detected but capability %s is unavailable", matchingDevice.Name, capability)
+	}
+	description := "matching"
+	if selection.ID != "" {
+		description = selection.ID
+	} else if selection.Platform != "" {
+		description = selection.Platform
+	}
+	return nil, domain.Device{}, fmt.Errorf("no %s device found; run 'mobilelab device list'", description)
 }
 
 func (r Runner) help() {
@@ -543,6 +712,7 @@ Available commands:
   capabilities Show only capabilities actually available on detected devices
   deeplink   Open a deep link on a ready device
   location   Set emulator/simulator location when supported
+  device     List/select devices and control app/device lifecycle
   run        Execute a portable YAML scenario and report PASS/FAIL
   scenario   List, run, and inspect persistent scenario history
   version    Print the MobileLab version

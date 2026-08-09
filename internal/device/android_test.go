@@ -45,6 +45,18 @@ func TestAndroidLocationRejectsPhysicalDevice(t *testing.T) {
 	}
 }
 
+func TestAndroidClearUsesPackageManagerForExplicitApp(t *testing.T) {
+	runner := &fakeRunner{path: "/sdk/adb"}
+	adapter := NewAndroidAdapter(runner)
+	if err := adapter.ClearApp(context.Background(), "emulator-5554", "dev.mobilelab.app"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-s", "emulator-5554", "shell", "pm", "clear", "dev.mobilelab.app"}
+	if !reflect.DeepEqual(runner.args, want) {
+		t.Fatalf("args = %v, want %v", runner.args, want)
+	}
+}
+
 type fakeRunner struct {
 	path   string
 	output []byte
