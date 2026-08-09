@@ -2,7 +2,7 @@
 
 MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
 
-> Status: **v0.7.0** project-local plugin ecosystem plus CI suites, record/replay, and optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
+> Status: **v1.0.0** stable configuration/scenario contracts, compatibility policy, safe migrations, project-local plugins, CI suites, record/replay, and optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
 
 ## Why MobileLab?
 
@@ -56,6 +56,16 @@ mobilelab scenario history
 mobilelab stop
 ```
 
+Print the URL appropriate for the host or a detected emulator/simulator:
+
+```sh
+mobilelab endpoint
+mobilelab endpoint --platform android --device emulator-5554
+mobilelab endpoint --platform ios --device <simulator-udid> --json
+```
+
+For the standard Android Emulator, a loopback Core becomes `http://10.0.2.2:<port>`. iOS Simulator shares the Mac network namespace. Physical devices require either an explicitly reachable trusted-network host or a deliberately configured tunnel such as `adb reverse`; MobileLab refuses to present a wildcard bind address as a reachable URL.
+
 `start` remains in the foreground and shuts down cleanly on Ctrl+C. From another terminal, `stop` uses a token-authenticated loopback control endpoint—not arbitrary process termination. Use `start --headless` to disable the embedded dashboard.
 
 ## API Sandbox
@@ -63,6 +73,7 @@ mobilelab stop
 Endpoints are declared in strict YAML. Unknown fields and invalid methods, ports, paths, statuses, or duplicate route templates fail before startup.
 
 ```yaml
+schema_version: 1
 variables:
   userId: "123"
 
@@ -116,9 +127,21 @@ The importer uses `kin-openapi` for parsing, reference resolution, and validatio
 
 ## Scenarios
 
+MobileLab 1.x stabilizes configuration and scenario schema v1. Newly initialized/generated YAML contains `schema_version: 1`; legacy pre-1.0 files remain readable and can be upgraded safely:
+
+```sh
+mobilelab migrate --check
+mobilelab migrate
+mobilelab schema config > mobilelab-config-v1.schema.json
+mobilelab schema scenario > mobilelab-scenario-v1.schema.json
+```
+
+Migration preflights every document before writing and atomically replaces only legacy files. See the [configuration reference](docs/configuration.md), [scenario reference](docs/scenarios.md), and [compatibility policy](docs/compatibility.md).
+
 Scenario YAML is independent of Flutter, React Native, and other application frameworks:
 
 ```yaml
+schema_version: 1
 name: Payment with expired session
 backend:
   latency: 2000
@@ -266,7 +289,7 @@ Go plugin authors can use the public [`pkg/plugin`](pkg/plugin) package. The run
 
 ## Architecture
 
-MobileLab is a Go modular monolith with inward-pointing dependencies and explicit ports for devices, request storage, scenarios, environment control, process execution, and future events. Platform details stay in adapters. See [ARCHITECTURE.md](ARCHITECTURE.md).
+MobileLab is a Go modular monolith with inward-pointing dependencies and explicit ports for devices, request storage, scenarios, environment control, process execution, and future events. Platform details stay in adapters. See [ARCHITECTURE.md](ARCHITECTURE.md) and the honest [`PRODUCT_SPEC.md` coverage audit](docs/spec-coverage.md).
 
 ## Testing and CI
 
@@ -286,7 +309,8 @@ The executable [CI example](examples/ci/README.md) starts MobileLab with `--head
 - Android Emulator Ethernet/cellular latency and speed shaping is partial; reliable offline mode and iOS network conditioning are unavailable. Local push is limited to booted iOS Simulators with supported Xcode tooling.
 - OpenAPI import does not yet support external references, callbacks, GraphQL, gRPC, or sophisticated example generation.
 - All framework integrations are optional observability SDKs; they are not required for the API Sandbox.
-- Plugins are manually installed, trusted project-local executables in v0.7. MobileLab limits their invocation but does not provide an OS sandbox, registry, signature verification, dependency resolution, or automatic updates.
+- Plugins are manually installed, trusted project-local executables in 1.0. MobileLab limits their invocation but does not provide an OS sandbox, registry, signature verification, dependency resolution, or automatic updates.
+- Automatic multi-platform `--all`, GraphQL/gRPC/SSE transports, enterprise identity providers, a remote plugin registry, and a public structured logging/`--verbose` contract are not part of 1.0.
 - SQLite retention/pruning policy is not implemented yet; schema migrations currently cover versions 1 through 3. Active recordings are process-local and are finalized by the `record` command.
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

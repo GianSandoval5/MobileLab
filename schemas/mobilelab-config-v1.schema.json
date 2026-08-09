@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobilelab.dev/schemas/mobilelab-config-v1.schema.json",
+  "title": "MobileLab configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project", "server", "dashboard", "sandbox", "auth", "device", "endpoints"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {"name": {"type": "string", "minLength": 1}}
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port"],
+      "properties": {
+        "host": {"type": "string", "minLength": 1},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    },
+    "dashboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {"enabled": {"type": "boolean"}}
+    },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency", "error_rate"],
+      "properties": {
+        "latency": {"type": "integer", "minimum": 0},
+        "error_rate": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {"enabled": {"type": "boolean"}}
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["auto_detect"],
+      "properties": {"auto_detect": {"type": "boolean"}}
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "push": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/pushFixture"}
+    },
+    "endpoints": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/endpoint"}
+    }
+  },
+  "$defs": {
+    "pushFixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {"type": "string"},
+        "body": {"type": "string"},
+        "data": {"type": "object"}
+      },
+      "anyOf": [
+        {"required": ["title"]},
+        {"required": ["body"]}
+      ]
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "method", "response"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "method": {"enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]},
+        "protected": {"type": "boolean"},
+        "delay": {"type": "integer", "minimum": 0},
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": {"status": {"type": "integer", "minimum": 400, "maximum": 599}}
+        },
+        "response": {"$ref": "#/$defs/response"}
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"type": "integer", "minimum": 100, "maximum": 599},
+        "headers": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "body": true,
+        "fixture": {"type": "string", "minLength": 1}
+      },
+      "not": {"required": ["body", "fixture"]}
+    }
+  }
+}

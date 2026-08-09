@@ -1,3 +1,4 @@
+schema_version: 1
 name: Headless environment controls
 steps:
   - set_latency: "25"

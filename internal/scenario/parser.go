@@ -2,18 +2,22 @@ package scenario
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
+	"github.com/mobilelab-dev/mobilelab/schemas"
 	"gopkg.in/yaml.v3"
 )
 
 type YAMLParser struct{}
 
 type scenarioDTO struct {
-	Name    string `yaml:"name"`
-	Backend struct {
+	SchemaVersion int    `yaml:"schema_version,omitempty"`
+	Name          string `yaml:"name"`
+	Backend       struct {
 		Latency int `yaml:"latency"`
 		Error   int `yaml:"error"`
 	} `yaml:"backend,omitempty"`
@@ -72,11 +76,27 @@ type responseDTO struct {
 }
 
 func (YAMLParser) Parse(data []byte) (domain.ScenarioDefinition, error) {
+	if len(data) > schemas.MaxYAMLBytes {
+		return domain.ScenarioDefinition{}, fmt.Errorf("parse scenario YAML: document exceeds %d bytes", schemas.MaxYAMLBytes)
+	}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
 	var dto scenarioDTO
 	if err := decoder.Decode(&dto); err != nil {
 		return domain.ScenarioDefinition{}, fmt.Errorf("parse scenario YAML: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return domain.ScenarioDefinition{}, fmt.Errorf("parse scenario YAML: expected exactly one YAML document")
+		}
+		return domain.ScenarioDefinition{}, fmt.Errorf("parse scenario YAML: %w", err)
+	}
+	if dto.SchemaVersion < 0 {
+		return domain.ScenarioDefinition{}, fmt.Errorf("invalid scenario: schema_version cannot be negative")
+	}
+	if dto.SchemaVersion > schemas.ScenarioVersion {
+		return domain.ScenarioDefinition{}, fmt.Errorf("invalid scenario: schema_version %d is newer than supported version %d; upgrade MobileLab", dto.SchemaVersion, schemas.ScenarioVersion)
 	}
 	definition := domain.ScenarioDefinition{
 		Name:    dto.Name,

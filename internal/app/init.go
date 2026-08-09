@@ -8,6 +8,7 @@ import (
 
 	"github.com/mobilelab-dev/mobilelab/internal/config"
 	"github.com/mobilelab-dev/mobilelab/internal/detect"
+	"github.com/mobilelab-dev/mobilelab/schemas"
 )
 
 type InitResult struct {
@@ -61,7 +62,8 @@ func Initialize(root string) (InitResult, error) {
   "plan": "developer"
 }
 `,
-		filepath.Join(workspace, "scenarios", "profile.yaml"): `name: Load local profile
+		filepath.Join(workspace, "scenarios", "profile.yaml"): fmt.Sprintf(`schema_version: %d
+name: Load local profile
 steps:
   - launch_app
 expect:
@@ -70,7 +72,7 @@ expect:
       path: /api/profile
   - response:
       status: 200
-`,
+`, schemas.ScenarioVersion),
 	}
 	created := []string{config.DefaultFilename, "mobilelab/fixtures/", "mobilelab/mocks/", "mobilelab/scenarios/"}
 	for path, contents := range files {

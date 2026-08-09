@@ -80,4 +80,10 @@ First-party Firebase, Supabase, GraphQL, or gRPC integrations remain candidates 
 
 ## 1.0 — Stable platform
 
-Stable scenario/config schemas, compatibility policy, migrations, long-lived plugin API, complete documentation, and production-quality cross-platform release distribution.
+- [x] stable configuration and scenario schema v1 with embedded/published JSON Schemas
+- [x] compatibility policy for YAML, CLI JSON, SDK protocol, plugin protocol, and SQLite
+- [x] legacy project preflight and atomic `migrate` / CI `migrate --check` workflows
+- [x] long-lived `mobilelab.plugin/v1` contract and public Go authoring API
+- [x] device-aware `mobilelab endpoint` with honest emulator/simulator/physical-device behavior
+- [x] complete contract documentation and honest `PRODUCT_SPEC.md` coverage audit
+- [x] production cross-platform binaries, coordinated SDK packages, schema assets, and checksums

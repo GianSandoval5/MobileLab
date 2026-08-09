@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mobilelab-dev/mobilelab/schemas"
 )
 
 func TestLoadStrictValidConfig(t *testing.T) {
@@ -43,6 +45,58 @@ endpoints:
 	}
 	if cfg.Project.Name != "sample" || len(cfg.Endpoints) != 1 {
 		t.Fatalf("unexpected config: %#v", cfg)
+	}
+}
+
+func TestConfigSchemaVersionCompatibilityAndWrite(t *testing.T) {
+	legacy := Default("legacy")
+	legacy.SchemaVersion = 0
+	path := filepath.Join(t.TempDir(), DefaultFilename)
+	if err := Write(path, legacy); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(data), "schema_version: 1\n") {
+		t.Fatalf("write did not emit stable schema version: %s", data)
+	}
+	cfg, err := Load(path)
+	if err != nil || cfg.SchemaVersion != schemas.ConfigVersion {
+		t.Fatalf("unexpected versioned config=%#v err=%v", cfg, err)
+	}
+
+	newer := strings.Replace(string(data), "schema_version: 1", "schema_version: 2", 1)
+	if err := os.WriteFile(path, []byte(newer), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "newer than supported") {
+		t.Fatalf("expected newer schema rejection, got %v", err)
+	}
+}
+
+func TestLoadAcceptsLegacyConfigAndRejectsMultipleOrOversizedDocuments(t *testing.T) {
+	path := filepath.Join(t.TempDir(), DefaultFilename)
+	legacy := "project: {name: legacy}\nserver: {host: 127.0.0.1, port: 4566}\nendpoints: []\n"
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil || cfg.SchemaVersion != 0 {
+		t.Fatalf("legacy config was not accepted: %#v %v", cfg, err)
+	}
+	if err := os.WriteFile(path, []byte(legacy+"---\nproject: {name: second}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "exactly one YAML document") {
+		t.Fatalf("expected multiple document rejection, got %v", err)
+	}
+	if err := os.WriteFile(path, []byte(strings.Repeat("x", schemas.MaxYAMLBytes+1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("expected size rejection, got %v", err)
 	}
 }
 

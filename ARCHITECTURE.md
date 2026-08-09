@@ -23,6 +23,8 @@ For 0.6, a scenario suite is a domain aggregate over one or more ordinary scenar
 
 For 0.7, extensions cross an explicit out-of-process boundary instead of being linked into Core. A project-local catalog reads strict `mobilelab.plugin/v1` manifests without executing them, resolves each executable within its declared plugin directory, and fingerprints its current contents. Only `mobilelab plugin run` starts a plugin: one bounded JSON request is sent on standard input and one correlated, bounded JSON response is accepted on standard output. The host supplies a minimal environment, a deadline, and no shell. The public Go package models this wire protocol for authors, while the protocol remains language-neutral. Plugins are trusted local programs rather than a security sandbox, and neither startup nor scenario execution loads them implicitly.
 
+For 1.0, the YAML transport boundary is explicitly versioned. Configuration and scenario schema v1 are published as embedded JSON Schemas; parsers accept legacy unversioned documents during 1.x, reject future versions, bound input size, and require exactly one YAML document. A migration application service preflights configuration and every recursive scenario before performing comment/permission-preserving atomic replacements. Endpoint resolution is a separate application policy over configuration plus device facts, so the CLI can report host, standard Android Emulator, iOS Simulator, and physical-device reachability without leaking platform conditionals into scenarios.
+
 ## Dependency rule
 
 Dependencies point inward:
@@ -52,6 +54,8 @@ internal/device/            fake, Android and iOS DeviceAdapter implementations
 internal/detect/            project/tool detectors
 internal/reporting/         terminal, JSON, JUnit XML and standalone HTML reporters
 internal/plugins/           strict manifest catalog and bounded process host
+internal/migration/         preflighted public YAML schema upgrades
+internal/endpoint/          honest host/device URL resolution policy
 internal/storage/           repository implementations
 internal/dashboard/         embedded local dashboard and typed events
 sdk/                        optional framework clients; never imported by Core
@@ -149,6 +153,9 @@ Every new dependency must remove meaningful implementation risk and be actively 
 11. **Reporters are pure output adapters:** reporting consumes immutable domain results and performs no device, HTTP, SQLite, or process operations; standard-library XML/templates keep CI formats portable and user content escaped.
 12. **Plugins are explicit out-of-process extensions:** strict project-local manifests and a versioned JSON protocol preserve framework/language neutrality; no plugin code runs during discovery, startup, or ordinary scenarios.
 13. **No registry before a trust model:** v0.7 exposes inspection and SHA-256 fingerprints but does not download executables or imply authenticity. First-party cloud integrations wait for demonstrated demand.
+14. **Version public documents, not domain objects:** `schema_version` belongs to YAML DTOs; the scenario domain remains transport-independent while v1 schemas and compatibility checks live at adapters.
+15. **Preflight migrations before mutation:** every targeted YAML file must parse under the old compatibility rules before any file is replaced; replacements preserve permissions and use same-directory atomic rename.
+16. **Resolve endpoints from device facts:** Android Emulator host aliases and iOS Simulator loopback are explicit policy results. Physical devices and wildcard bind addresses fail with remediation instead of returning a URL that cannot work.
 
 ## Incremental delivery plan
 
@@ -159,5 +166,6 @@ Every new dependency must remove meaningful implementation risk and be actively 
 5. Add real Android and conditional iOS slices, doctor/capabilities, dashboard events, and OpenAPI import.
 6. Add SQLite repositories and live dashboard events, then continue with examples, richer assertions, and release packaging.
 7. Add the versioned plugin protocol, project-local catalog, explicit bounded execution, author SDK, and executable conformance example.
+8. Stabilize v1 YAML/plugin/SDK contracts, publish schemas and compatibility guarantees, add safe project migration, and harden cross-platform distribution.
 
 Each slice must finish with formatting, focused tests, the full test suite, and a cross-platform-oriented build before the next slice starts.

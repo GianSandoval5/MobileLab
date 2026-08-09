@@ -14,6 +14,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mobilelab-dev/mobilelab/internal/config"
+	"github.com/mobilelab-dev/mobilelab/schemas"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,6 +27,12 @@ type Result struct {
 type generatedEndpoint struct {
 	definition  config.EndpointDefinition
 	operationID string
+}
+
+type generatedScenario struct {
+	SchemaVersion int    `yaml:"schema_version"`
+	Name          string `yaml:"name"`
+	Expect        []any  `yaml:"expect"`
 }
 
 func Import(ctx context.Context, specificationPath, configPath string) (Result, error) {
@@ -200,9 +207,10 @@ func writeScenarios(directory string, endpoints []generatedEndpoint) (int, error
 			name = slug(strings.ToLower(endpoint.definition.Method) + "-" + endpoint.definition.Path)
 		}
 		path := filepath.Join(directory, "openapi-"+name+".yaml")
-		payload := map[string]any{
-			"name": "OpenAPI " + endpoint.definition.Method + " " + endpoint.definition.Path,
-			"expect": []any{
+		payload := generatedScenario{
+			SchemaVersion: schemas.ScenarioVersion,
+			Name:          "OpenAPI " + endpoint.definition.Method + " " + endpoint.definition.Path,
+			Expect: []any{
 				map[string]any{"request": map[string]any{"method": endpoint.definition.Method, "path": endpoint.definition.Path}},
 				map[string]any{"response": map[string]any{"status": endpoint.definition.Response.Status}},
 			},

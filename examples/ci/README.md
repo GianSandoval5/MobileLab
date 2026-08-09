@@ -1,6 +1,6 @@
 # MobileLab CI example
 
-This example starts the Core without its dashboard, waits for the authenticated control plane to become ready, executes the same scenario directory with the fake device adapter, and retains JUnit XML, standalone HTML, the Core log, and a sample API response.
+This example first enforces current stable YAML contracts with `mobilelab migrate --check`, starts the Core without its dashboard, waits for the authenticated control plane to become ready, executes the same scenario directory with the fake device adapter, and retains JUnit XML, standalone HTML, the Core log, and a sample API response.
 
 Build MobileLab at the repository root, then run:
 

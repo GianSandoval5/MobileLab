@@ -17,7 +17,7 @@ void main() {
       expect(request.uri.path, '/__mobilelab/sdk/events');
       expect(
         request.headers.value('X-MobileLab-SDK'),
-        'mobilelab_flutter/0.7.0',
+        'mobilelab_flutter/1.0.0',
       );
       request.response.statusCode = HttpStatus.accepted;
       await request.response.close();

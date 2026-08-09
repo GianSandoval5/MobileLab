@@ -4,7 +4,7 @@ Optional Kotlin hooks for native Android applications using MobileLab protocol v
 
 The artifact is a Kotlin/JVM library with no AndroidX or serialization runtime dependency. Its networking uses `HttpURLConnection`, which is available on Android. Call direct client methods away from the main thread; `MobileLabLifecycleReporter` dispatches lifecycle calls on its own executor.
 
-The v0.7 GitHub Release includes `mobilelab-android-0.7.0.jar`. Place it under the application's `app/libs` directory and add `implementation(files("libs/mobilelab-android-0.7.0.jar"))`; the JAR targets JVM bytecode 8 and expects the application's normal Kotlin standard library.
+The v1.0 GitHub Release includes `mobilelab-android-1.0.0.jar`. Place it under the application's `app/libs` directory and add `implementation(files("libs/mobilelab-android-1.0.0.jar"))`; the JAR targets JVM bytecode 8 and expects the application's normal Kotlin standard library.
 
 ```kotlin
 val mobileLab = MobileLabClient(endpoint = "http://10.0.2.2:4566")

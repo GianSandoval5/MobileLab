@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
+	"github.com/mobilelab-dev/mobilelab/schemas"
 	"gopkg.in/yaml.v3"
 )
 
@@ -62,11 +63,12 @@ func GenerateScenario(recording domain.Recording) (domain.ScenarioDefinition, er
 }
 
 type scenarioYAML struct {
-	Name    string                    `yaml:"name"`
-	Backend *scenarioBackendYAML      `yaml:"backend,omitempty"`
-	Auth    *scenarioAuthYAML         `yaml:"auth,omitempty"`
-	Steps   []any                     `yaml:"steps,omitempty"`
-	Expect  []scenarioExpectationYAML `yaml:"expect,omitempty"`
+	SchemaVersion int                       `yaml:"schema_version"`
+	Name          string                    `yaml:"name"`
+	Backend       *scenarioBackendYAML      `yaml:"backend,omitempty"`
+	Auth          *scenarioAuthYAML         `yaml:"auth,omitempty"`
+	Steps         []any                     `yaml:"steps,omitempty"`
+	Expect        []scenarioExpectationYAML `yaml:"expect,omitempty"`
 }
 
 type scenarioBackendYAML struct {
@@ -89,7 +91,7 @@ type responseExpectationYAML struct {
 }
 
 func EncodeScenario(definition domain.ScenarioDefinition) ([]byte, error) {
-	dto := scenarioYAML{Name: definition.Name}
+	dto := scenarioYAML{SchemaVersion: schemas.ScenarioVersion, Name: definition.Name}
 	if definition.Backend.LatencyMS != 0 || definition.Backend.Error != 0 {
 		dto.Backend = &scenarioBackendYAML{Latency: definition.Backend.LatencyMS, Error: definition.Backend.Error}
 	}

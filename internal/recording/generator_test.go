@@ -3,6 +3,7 @@ package recording
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +27,9 @@ func TestGenerateEncodeAndParseRecordedScenario(t *testing.T) {
 	data, err := EncodeScenario(definition)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(data), "schema_version: 1\n") {
+		t.Fatalf("recorded scenario is not schema v1:\n%s", data)
 	}
 	parsed, err := (scenario.YAMLParser{}).Parse(data)
 	if err != nil {

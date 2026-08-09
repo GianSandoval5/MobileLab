@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mobilelab-dev/mobilelab/internal/config"
@@ -72,7 +73,11 @@ components:
 	if !found {
 		t.Fatal("generated endpoint missing from config")
 	}
-	if _, err := os.Stat(filepath.Join(root, "mobilelab", "scenarios", "openapi-getuser.yaml")); err != nil {
+	scenarioData, err := os.ReadFile(filepath.Join(root, "mobilelab", "scenarios", "openapi-getuser.yaml"))
+	if err != nil {
 		t.Fatalf("generated scenario missing: %v", err)
+	}
+	if !strings.HasPrefix(string(scenarioData), "schema_version: 1\n") {
+		t.Fatalf("generated scenario is not schema v1: %s", scenarioData)
 	}
 }

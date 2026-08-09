@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-MobileLab has not released a stable version. Security fixes currently target the main development branch.
+Security fixes target the latest stable 1.x release and the main development branch.
 
 ## Reporting a vulnerability
 
@@ -18,4 +18,8 @@ The SDK event endpoint is intentionally reachable by the application under test 
 
 Plugins are trusted project-local executables and run only after an explicit `mobilelab plugin run`. Discovery and inspection parse manifests, confine resolved executable paths to the plugin directory, and compute a SHA-256 fingerprint without executing code. Invocation uses no shell, passes a minimal environment rather than arbitrary parent variables, enforces a deadline, limits each protocol message to 1 MiB, and requires a correlated strict `mobilelab.plugin/v1` response.
 
-These controls are not an operating-system sandbox. An invoked plugin still has the user's filesystem and network permissions, and a SHA-256 fingerprint identifies bytes but does not prove their publisher. MobileLab v0.7 intentionally provides no remote registry, downloader, automatic update, or signature claim. Review third-party code and compare an independently obtained fingerprint before placing it in `mobilelab/plugins`.
+These controls are not an operating-system sandbox. An invoked plugin still has the user's filesystem and network permissions, and a SHA-256 fingerprint identifies bytes but does not prove their publisher. MobileLab 1.0 intentionally provides no remote registry, downloader, automatic update, or signature claim. Review third-party code and compare an independently obtained fingerprint before placing it in `mobilelab/plugins`.
+
+## Schema migration safety
+
+Configuration and scenario inputs are limited to one 1 MiB YAML document and reject unknown fields or newer unsupported schema versions. `mobilelab migrate` rejects a symlinked configuration, does not traverse scenario symlinks, preflights every target before writing, preserves file modes/comments, and replaces changed files atomically. Review migration diffs before committing them; migrations do not make unsafe scenario actions trustworthy.

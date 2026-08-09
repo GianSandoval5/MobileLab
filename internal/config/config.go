@@ -1,29 +1,33 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/mobilelab-dev/mobilelab/schemas"
 	"gopkg.in/yaml.v3"
 )
 
 const DefaultFilename = "mobilelab.yaml"
 
 type Config struct {
-	Project   ProjectConfig          `yaml:"project"`
-	Server    ServerConfig           `yaml:"server"`
-	Dashboard DashboardConfig        `yaml:"dashboard"`
-	Sandbox   SandboxConfig          `yaml:"sandbox"`
-	Auth      AuthConfig             `yaml:"auth"`
-	Device    DeviceConfig           `yaml:"device"`
-	Variables map[string]string      `yaml:"variables,omitempty"`
-	Push      map[string]PushFixture `yaml:"push,omitempty"`
-	Endpoints []EndpointDefinition   `yaml:"endpoints"`
+	SchemaVersion int                    `yaml:"schema_version,omitempty"`
+	Project       ProjectConfig          `yaml:"project"`
+	Server        ServerConfig           `yaml:"server"`
+	Dashboard     DashboardConfig        `yaml:"dashboard"`
+	Sandbox       SandboxConfig          `yaml:"sandbox"`
+	Auth          AuthConfig             `yaml:"auth"`
+	Device        DeviceConfig           `yaml:"device"`
+	Variables     map[string]string      `yaml:"variables,omitempty"`
+	Push          map[string]PushFixture `yaml:"push,omitempty"`
+	Endpoints     []EndpointDefinition   `yaml:"endpoints"`
 }
 
 type ProjectConfig struct {
@@ -83,12 +87,13 @@ func Default(projectName string) Config {
 		projectName = "mobile-app"
 	}
 	return Config{
-		Project:   ProjectConfig{Name: projectName},
-		Server:    ServerConfig{Host: "127.0.0.1", Port: 4566},
-		Dashboard: DashboardConfig{Enabled: true},
-		Auth:      AuthConfig{Enabled: true},
-		Device:    DeviceConfig{AutoDetect: true},
-		Variables: map[string]string{"userId": "123"},
+		SchemaVersion: schemas.ConfigVersion,
+		Project:       ProjectConfig{Name: projectName},
+		Server:        ServerConfig{Host: "127.0.0.1", Port: 4566},
+		Dashboard:     DashboardConfig{Enabled: true},
+		Auth:          AuthConfig{Enabled: true},
+		Device:        DeviceConfig{AutoDetect: true},
+		Variables:     map[string]string{"userId": "123"},
 		Push: map[string]PushFixture{
 			"payment-success": {
 				Title: "Payment completed",
@@ -114,19 +119,44 @@ func Load(path string) (Config, error) {
 	}
 	defer f.Close()
 
+	data, err := io.ReadAll(io.LimitReader(f, schemas.MaxYAMLBytes+1))
+	if err != nil {
+		return Config{}, fmt.Errorf("read configuration %q: %w", path, err)
+	}
+	return parse(data, path)
+}
+
+func Parse(data []byte) (Config, error) {
+	return parse(data, "input")
+}
+
+func parse(data []byte, source string) (Config, error) {
+	if len(data) > schemas.MaxYAMLBytes {
+		return Config{}, fmt.Errorf("configuration %q exceeds %d bytes", source, schemas.MaxYAMLBytes)
+	}
 	var cfg Config
-	decoder := yaml.NewDecoder(f)
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&cfg); err != nil {
-		return Config{}, fmt.Errorf("parse configuration %q: %w", path, err)
+		return Config{}, fmt.Errorf("parse configuration %q: %w", source, err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			return Config{}, fmt.Errorf("parse configuration %q: expected exactly one YAML document", source)
+		}
+		return Config{}, fmt.Errorf("parse configuration %q: %w", source, err)
 	}
 	if err := cfg.Validate(); err != nil {
-		return Config{}, fmt.Errorf("invalid configuration %q: %w", path, err)
+		return Config{}, fmt.Errorf("invalid configuration %q: %w", source, err)
 	}
 	return cfg, nil
 }
 
 func Write(path string, cfg Config) error {
+	if cfg.SchemaVersion == 0 {
+		cfg.SchemaVersion = schemas.ConfigVersion
+	}
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
@@ -142,6 +172,12 @@ func Write(path string, cfg Config) error {
 
 func (c Config) Validate() error {
 	var problems []error
+	if c.SchemaVersion < 0 {
+		problems = append(problems, errors.New("schema_version cannot be negative"))
+	}
+	if c.SchemaVersion > schemas.ConfigVersion {
+		problems = append(problems, fmt.Errorf("schema_version %d is newer than supported version %d; upgrade MobileLab", c.SchemaVersion, schemas.ConfigVersion))
+	}
 	if strings.TrimSpace(c.Project.Name) == "" {
 		problems = append(problems, errors.New("project.name is required"))
 	}

@@ -1,3 +1,4 @@
+schema_version: 1
 name: Android example marker
 expect:
   - app_event:

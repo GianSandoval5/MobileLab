@@ -1,7 +1,7 @@
 GO ?= go
 BINARY := bin/mobilelab
 PLUGIN_EXAMPLE_BINARY := examples/plugins/mobilelab/plugins/echo/mobilelab-plugin-echo$(if $(filter Windows_NT,$(OS)),.exe,)
-VERSION ?= 0.7.0
+VERSION ?= 1.0.0-dev
 LDFLAGS ?= -s -w -X github.com/mobilelab-dev/mobilelab/internal/cli.Version=$(VERSION)
 
 .PHONY: build test lint run clean release-check ci-example plugin-example plugin-example-check sdk-test sdk-flutter-test sdk-react-native-test sdk-android-test sdk-ios-test sdk-capacitor-test

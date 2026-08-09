@@ -6,6 +6,8 @@ artifact_dir=${MOBILELAB_ARTIFACT_DIR:-artifacts}
 
 mkdir -p "$artifact_dir"
 
+"$mobilelab_bin" migrate --check
+
 "$mobilelab_bin" start --headless >"$artifact_dir/mobilelab.log" 2>&1 &
 core_pid=$!
 

@@ -28,7 +28,7 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/scenario"
 )
 
-var Version = "0.7.0"
+var Version = "1.0.0-dev"
 
 type Runner struct {
 	Out            io.Writer
@@ -58,6 +58,8 @@ func (r Runner) Run(ctx context.Context, args []string) error {
 		return r.init(ctx, args[1:])
 	case "detect":
 		return r.detect(ctx)
+	case "endpoint":
+		return r.endpointCommand(ctx, args[1:])
 	case "doctor":
 		return r.doctor()
 	case "capabilities":
@@ -85,6 +87,10 @@ func (r Runner) Run(ctx context.Context, args []string) error {
 		return r.scenarioCommand(ctx, append([]string{"run"}, args[1:]...))
 	case "plugin":
 		return r.pluginCommand(ctx, args[1:])
+	case "schema":
+		return r.schemaCommand(args[1:])
+	case "migrate":
+		return r.migrateCommand(args[1:])
 	case "start":
 		return r.start(ctx, args[1:])
 	case "status":
@@ -1045,6 +1051,7 @@ Available commands:
   api        Set/reset global API latency and errors
   auth       Expire/reset the local auth session
   detect     Detect mobile frameworks and project platforms
+  endpoint   Print the reachable Core URL for host, emulator, or simulator
   doctor     Diagnose local configuration and mobile tooling
   capabilities Show only capabilities actually available on detected devices
   deeplink   Open a deep link on a ready device
@@ -1057,6 +1064,8 @@ Available commands:
   record     Capture app traffic/actions into a portable YAML scenario
   replay     Execute a recorded scenario through the standard runner
   plugin     List, inspect, and explicitly run project-local plugins
+  schema     Print stable configuration or scenario JSON Schema
+  migrate    Upgrade project YAML documents to stable schema versions
   version    Print the MobileLab version
   help       Show this help`)
 }

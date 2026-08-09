@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobilelab.dev/schemas/mobilelab-scenario-v1.schema.json",
+  "title": "MobileLab scenario v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "name": {"type": "string", "minLength": 1},
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "latency": {"type": "integer", "minimum": 0},
+        "error": {
+          "oneOf": [
+            {"const": 0},
+            {"type": "integer", "minimum": 400, "maximum": 599}
+          ]
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token"],
+      "properties": {"token": {"enum": ["valid", "expired"]}}
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network"],
+      "properties": {"network": {"enum": ["online", "offline", "slow"]}}
+    },
+    "steps": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/step"}
+    },
+    "expect": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/assertion"}
+    }
+  },
+  "$defs": {
+    "step": {
+      "oneOf": [
+        {"enum": ["launch_app", "stop_app", "reset_api", "expire_auth", "reset_auth"]},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["open_deeplink"],
+          "properties": {"open_deeplink": {"type": "string", "minLength": 1}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["set_latency"],
+          "properties": {"set_latency": {"type": ["string", "integer"]}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["set_error"],
+          "properties": {"set_error": {"type": ["string", "integer"]}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["wait_for_http"],
+          "properties": {"wait_for_http": {"type": "string", "minLength": 1}}
+        }
+      ]
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+	  "properties": {
+		"request": {"$ref": "#/$defs/requestExpectation"},
+		"response": {"$ref": "#/$defs/responseExpectation"},
+		"app_event": {"$ref": "#/$defs/appEventExpectation"}
+	  },
+      "oneOf": [
+		{"required": ["request"]},
+		{"required": ["response"]},
+		{"required": ["app_event"]}
+	  ]
+	},
+	"requestExpectation": {
+	  "type": "object",
+	  "additionalProperties": false,
+	  "required": ["method", "path"],
+	  "properties": {
+		"method": {"type": "string", "minLength": 1},
+		"path": {"type": "string", "pattern": "^/"}
+	  }
+	},
+	"responseExpectation": {
+	  "type": "object",
+	  "additionalProperties": false,
+	  "required": ["status"],
+	  "properties": {"status": {"type": "integer", "minimum": 100, "maximum": 599}}
+	},
+	"appEventExpectation": {
+	  "type": "object",
+	  "additionalProperties": false,
+	  "required": ["kind", "name"],
+	  "properties": {
+		"framework": {"enum": ["flutter", "react-native", "android", "ios", "capacitor"]},
+		"kind": {"enum": ["lifecycle", "marker", "assertion"]},
+		"name": {"type": "string", "minLength": 1},
+		"passed": {"type": "boolean"}
+	  }
+    }
+  }
+}

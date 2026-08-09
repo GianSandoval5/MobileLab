@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-09
+
+### Added
+
+- Stable configuration and scenario schema v1 with explicit `schema_version`, authoritative Draft 2020-12 JSON Schemas, and `mobilelab schema config|scenario` output embedded in every Core binary.
+- `mobilelab migrate --check` for non-mutating CI enforcement and `mobilelab migrate` for preflighted, comment/permission-preserving atomic upgrades of legacy configuration and recursive scenarios.
+- `mobilelab endpoint` with human/JSON output and honest resolution for the development host, standard Android Emulator (`10.0.2.2`), iOS Simulator, and explicitly reachable physical devices.
+- Public 1.x compatibility policy, configuration/scenario references, and a complete honest coverage audit of `PRODUCT_SPEC.md`.
+- Configuration/scenario JSON Schemas as versioned GitHub Release assets covered by `SHA256SUMS`.
+
+### Changed
+
+- New initialization, recorder, OpenAPI generation, checked-in examples, and sample configuration now emit schema version 1.
+- Configuration and scenario parsers now bound YAML documents to 1 MiB, reject multiple documents, accept legacy unversioned input during 1.x, and reject newer unsupported schema versions with upgrade guidance.
+- Coordinated all optional framework SDK packages at their first stable 1.0.0 release without changing SDK event protocol v1.
+- Declared `mobilelab.plugin/v1`, CLI JSON meanings, YAML v1 contracts, and the public Go plugin package stable for the MobileLab 1.x line.
+
+### Security
+
+- Project migration rejects configuration symlinks, ignores scenario symlinks, preflights every target before mutation, and uses same-directory atomic replacement.
+- Endpoint resolution never presents wildcard bind addresses as device-reachable URLs and requires explicit trusted-network configuration for physical devices that cannot reach loopback.
+
 ## [0.7.0] - 2026-08-09
 
 ### Added
@@ -135,7 +157,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - SQLite retention/pruning and JUnit/HTML reports are not yet available.
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
-[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.4.0...v0.5.0

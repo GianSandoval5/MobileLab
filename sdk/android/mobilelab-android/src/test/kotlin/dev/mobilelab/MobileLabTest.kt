@@ -63,7 +63,7 @@ class MobileLabTest {
             server.stop(0)
         }
 
-        assertEquals("mobilelab-android/0.7.0", sdkHeader)
+        assertEquals("mobilelab-android/1.0.0", sdkHeader)
         assertContains(body, "\"framework\":\"android\"")
         assertContains(body, "\"name\":\"transport.ready\"")
         assertContains(body, "\"quoted\":\"a\\\"b\"")

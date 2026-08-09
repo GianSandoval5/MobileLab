@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
+	"github.com/mobilelab-dev/mobilelab/schemas"
 )
 
 func TestYAMLParserCreatesPlatformNeutralDomain(t *testing.T) {
@@ -70,5 +71,26 @@ func TestYAMLParserAcceptsNativeAndCapacitorAppEvents(t *testing.T) {
 		if got := string(definition.Assertions[0].AppEvent.Framework); got != framework {
 			t.Fatalf("framework=%q, want %q", got, framework)
 		}
+	}
+}
+
+func TestYAMLParserSupportsLegacyAndStableV1Only(t *testing.T) {
+	parser := YAMLParser{}
+	for _, input := range []string{
+		"name: legacy\n",
+		"schema_version: 1\nname: stable\n",
+	} {
+		if _, err := parser.Parse([]byte(input)); err != nil {
+			t.Fatalf("expected compatible scenario %q: %v", input, err)
+		}
+	}
+	if _, err := parser.Parse([]byte("schema_version: 2\nname: future\n")); err == nil || !strings.Contains(err.Error(), "newer than supported") {
+		t.Fatalf("expected future schema rejection, got %v", err)
+	}
+	if _, err := parser.Parse([]byte("name: first\n---\nname: second\n")); err == nil || !strings.Contains(err.Error(), "exactly one YAML document") {
+		t.Fatalf("expected multiple document rejection, got %v", err)
+	}
+	if _, err := parser.Parse([]byte(strings.Repeat("x", schemas.MaxYAMLBytes+1))); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("expected size rejection, got %v", err)
 	}
 }

@@ -22,8 +22,12 @@ func TestInitializeCreatesUsableEnvironment(t *testing.T) {
 	if len(result.Detected) != 1 || result.Detected[0].Name != "Flutter" {
 		t.Fatalf("unexpected detection: %v", result.Detected)
 	}
-	if _, err := config.Load(result.ConfigPath); err != nil {
+	generatedConfig, err := config.Load(result.ConfigPath)
+	if err != nil {
 		t.Fatalf("generated config cannot be loaded: %v", err)
+	}
+	if generatedConfig.SchemaVersion != 1 {
+		t.Fatalf("generated config schema version = %d", generatedConfig.SchemaVersion)
 	}
 	for _, path := range []string{
 		"mobilelab/.gitignore",
@@ -34,6 +38,10 @@ func TestInitializeCreatesUsableEnvironment(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(root, path)); err != nil {
 			t.Errorf("missing generated path %s: %v", path, err)
 		}
+	}
+	scenarioData, err := os.ReadFile(filepath.Join(root, "mobilelab", "scenarios", "profile.yaml"))
+	if err != nil || !strings.HasPrefix(string(scenarioData), "schema_version: 1\n") {
+		t.Fatalf("generated scenario is not schema v1: %q %v", scenarioData, err)
 	}
 }
 

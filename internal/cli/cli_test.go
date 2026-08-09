@@ -16,6 +16,7 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	"github.com/mobilelab-dev/mobilelab/internal/reporting"
 	protocol "github.com/mobilelab-dev/mobilelab/pkg/plugin"
+	"github.com/mobilelab-dev/mobilelab/schemas"
 )
 
 type pluginProcessFunc func(context.Context, string, string, []string, []byte, int) ([]byte, error)
@@ -40,6 +41,96 @@ func TestUnknownCommandIsActionable(t *testing.T) {
 	err := runner.Run(context.Background(), []string{"wat"})
 	if err == nil || !strings.Contains(err.Error(), "mobilelab help") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSchemaCommandPrintsEmbeddedStableContracts(t *testing.T) {
+	for _, kind := range []schemas.Kind{schemas.Config, schemas.Scenario} {
+		var output bytes.Buffer
+		runner := New(&output, &bytes.Buffer{}, t.TempDir())
+		if err := runner.Run(context.Background(), []string{"schema", string(kind)}); err != nil {
+			t.Fatal(err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(output.Bytes(), &document); err != nil {
+			t.Fatalf("%s schema output is not JSON: %v", kind, err)
+		}
+		if document["$schema"] == nil || document["$id"] == nil {
+			t.Fatalf("%s schema output is incomplete: %#v", kind, document)
+		}
+	}
+}
+
+func TestMigrateCommandChecksThenUpgradesLegacyProject(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.Default("legacy")
+	configPath := filepath.Join(root, config.DefaultFilename)
+	if err := config.Write(configPath, cfg); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, []byte(strings.TrimPrefix(string(data), "schema_version: 1\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	scenarioDirectory := filepath.Join(root, "mobilelab", "scenarios")
+	if err := os.MkdirAll(scenarioDirectory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	scenarioPath := filepath.Join(scenarioDirectory, "legacy.yaml")
+	if err := os.WriteFile(scenarioPath, []byte("name: Legacy\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	runner := New(&output, &bytes.Buffer{}, root)
+	if err := runner.Run(context.Background(), []string{"migrate", "--check"}); err == nil || !strings.Contains(err.Error(), "2 document(s)") {
+		t.Fatalf("expected migration check failure, got %v", err)
+	}
+	if err := runner.Run(context.Background(), []string{"migrate"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Migrated 2 document(s)") {
+		t.Fatalf("unexpected migration output: %q", output.String())
+	}
+	for _, path := range []string{configPath, scenarioPath} {
+		migrated, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(migrated), "schema_version: 1\n") {
+			t.Fatalf("%s was not migrated: %s", path, migrated)
+		}
+	}
+}
+
+func TestEndpointCommandResolvesHostAndSelectedEmulator(t *testing.T) {
+	root := t.TempDir()
+	if err := config.Write(filepath.Join(root, config.DefaultFilename), config.Default("endpoint")); err != nil {
+		t.Fatal(err)
+	}
+	adapter := &device.FakeAdapter{
+		PlatformName: "android",
+		Devices: []domain.Device{{
+			ID: "emulator-5554", Name: "Pixel", Platform: "android", Emulator: true, State: "device",
+		}},
+	}
+	var output, errors bytes.Buffer
+	runner := New(&output, &errors, root)
+	runner.DeviceAdapters = []domain.DeviceAdapter{adapter}
+	if err := runner.Run(context.Background(), []string{"endpoint"}); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "http://127.0.0.1:4566\n" {
+		t.Fatalf("unexpected host endpoint: %q", output.String())
+	}
+	output.Reset()
+	if err := runner.Run(context.Background(), []string{"endpoint", "--platform", "android", "--device", "emulator-5554", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), `"url": "http://10.0.2.2:4566"`) || !strings.Contains(output.String(), `"device_id": "emulator-5554"`) {
+		t.Fatalf("unexpected Android endpoint: %q", output.String())
 	}
 }
 

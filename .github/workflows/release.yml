@@ -112,6 +112,7 @@ jobs:
           cp "sdk/android/mobilelab-android/build/libs/mobilelab-android-${version}.jar" dist/
           git archive --format=tar.gz --prefix=mobilelab_flutter/ --output="dist/mobilelab_flutter-${version}.tar.gz" HEAD:sdk/flutter/mobilelab_flutter
           git archive --format=tar.gz --prefix=MobileLabKit/ --output="dist/mobilelab-kit-${version}.tar.gz" HEAD:sdk/ios/MobileLabKit
+          cp schemas/mobilelab-config-v1.schema.json schemas/mobilelab-scenario-v1.schema.json dist/
       - uses: actions/upload-artifact@v7
         with:
           name: mobilelab-sdks
