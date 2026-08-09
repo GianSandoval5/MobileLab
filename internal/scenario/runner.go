@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -72,6 +73,7 @@ func (r Runner) Run(ctx context.Context, definition domain.ScenarioDefinition, o
 		result.Steps = append(result.Steps, passedCheck("set network "+string(definition.Device.Network)))
 	}
 
+	httpWaitCounts := make(map[string]int)
 	for _, step := range definition.Steps {
 		name := string(step.Kind)
 		var err error
@@ -90,6 +92,24 @@ func (r Runner) Run(ctx context.Context, definition domain.ScenarioDefinition, o
 			}
 		case domain.StepOpenDeepLink:
 			err = r.Device.OpenDeepLink(ctx, options.DeviceID, step.Value)
+		case domain.StepSetLatency:
+			value, _ := strconv.Atoi(step.Value)
+			err = r.Environment.SetLatency(ctx, value)
+		case domain.StepSetError:
+			value, _ := strconv.Atoi(step.Value)
+			err = r.Environment.SetError(ctx, value)
+		case domain.StepResetAPI:
+			err = r.Environment.Reset(ctx)
+		case domain.StepExpireAuth:
+			err = r.Environment.SetAuthExpired(ctx, true)
+		case domain.StepResetAuth:
+			err = r.Environment.SetAuthExpired(ctx, false)
+		case domain.StepWaitForHTTP:
+			method, path, status, _ := domain.ParseHTTPWait(step.Value)
+			key := fmt.Sprintf("%s %s %d", method, path, status)
+			occurrence := httpWaitCounts[key] + 1
+			httpWaitCounts[key] = occurrence
+			err = r.waitForHTTP(ctx, started, method, path, status, occurrence, options.Timeout)
 		default:
 			err = fmt.Errorf("unsupported scenario step %q", step.Kind)
 		}
@@ -104,6 +124,35 @@ func (r Runner) Run(ctx context.Context, definition domain.ScenarioDefinition, o
 		result.Assertions = r.waitForAssertions(ctx, started, definition.Assertions, options.Timeout)
 	}
 	return result, nil
+}
+
+func (r Runner) waitForHTTP(ctx context.Context, started time.Time, method, path string, status, occurrence int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		records, err := r.Environment.RecentRequests(ctx, 500)
+		if err != nil {
+			return fmt.Errorf("read observed requests: %w", err)
+		}
+		matches := 0
+		for _, record := range recordsSince(records, started) {
+			if strings.EqualFold(record.Method, method) && assertionPathMatches(path, record.Path) && record.Status == status {
+				matches++
+			}
+		}
+		if matches >= occurrence {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out waiting for occurrence %d of %s %s returning HTTP %d", occurrence, method, path, status)
+		}
+		timer := time.NewTimer(50 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func (r Runner) waitForAssertions(ctx context.Context, started time.Time, assertions []domain.ScenarioAssertion, timeout time.Duration) []domain.ScenarioCheck {

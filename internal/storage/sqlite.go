@@ -13,7 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const currentSchemaVersion = 2
+const currentSchemaVersion = 3
 
 type SQLite struct {
 	db *sql.DB
@@ -146,6 +146,10 @@ var migrations = map[int][]string{
 		)`,
 		`CREATE INDEX app_events_timestamp_idx ON app_events(timestamp DESC, id DESC)`,
 	},
+	3: {
+		`ALTER TABLE request_history ADD COLUMN response_headers_json TEXT`,
+		`ALTER TABLE request_history ADD COLUMN response_body_json TEXT`,
+	},
 }
 
 func (s *SQLite) Append(ctx context.Context, record domain.RequestRecord) error {
@@ -161,10 +165,18 @@ func (s *SQLite) Append(ctx context.Context, record domain.RequestRecord) error 
 	if err != nil {
 		return fmt.Errorf("encode request body: %w", err)
 	}
+	responseHeaders, err := marshalNullable(record.ResponseHeaders)
+	if err != nil {
+		return fmt.Errorf("encode response headers: %w", err)
+	}
+	responseBody, err := marshalNullable(record.ResponseBody)
+	if err != nil {
+		return fmt.Errorf("encode response body: %w", err)
+	}
 	_, err = s.db.ExecContext(ctx, `INSERT INTO request_history(
-		method, path, query_json, headers_json, body_json, status, duration_ms, timestamp
-	) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-		record.Method, record.Path, query, headers, body, record.Status, record.DurationMS, record.Timestamp.UTC().Format(time.RFC3339Nano),
+		method, path, query_json, headers_json, body_json, status, duration_ms, timestamp, response_headers_json, response_body_json
+	) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		record.Method, record.Path, query, headers, body, record.Status, record.DurationMS, record.Timestamp.UTC().Format(time.RFC3339Nano), responseHeaders, responseBody,
 	)
 	if err != nil {
 		return fmt.Errorf("store request record: %w", err)
@@ -174,9 +186,9 @@ func (s *SQLite) Append(ctx context.Context, record domain.RequestRecord) error 
 
 func (s *SQLite) Recent(ctx context.Context, limit int) ([]domain.RequestRecord, error) {
 	limit = normalizedLimit(limit)
-	rows, err := s.db.QueryContext(ctx, `SELECT method, path, query_json, headers_json, body_json, status, duration_ms, timestamp
+	rows, err := s.db.QueryContext(ctx, `SELECT method, path, query_json, headers_json, body_json, status, duration_ms, timestamp, response_headers_json, response_body_json
 		FROM (
-			SELECT id, method, path, query_json, headers_json, body_json, status, duration_ms, timestamp
+			SELECT id, method, path, query_json, headers_json, body_json, status, duration_ms, timestamp, response_headers_json, response_body_json
 			FROM request_history ORDER BY timestamp DESC, id DESC LIMIT ?
 		) ORDER BY timestamp ASC, id ASC`, limit)
 	if err != nil {
@@ -187,9 +199,9 @@ func (s *SQLite) Recent(ctx context.Context, limit int) ([]domain.RequestRecord,
 	var records []domain.RequestRecord
 	for rows.Next() {
 		var record domain.RequestRecord
-		var query, headers, body sql.NullString
+		var query, headers, body, responseHeaders, responseBody sql.NullString
 		var timestamp string
-		if err := rows.Scan(&record.Method, &record.Path, &query, &headers, &body, &record.Status, &record.DurationMS, &timestamp); err != nil {
+		if err := rows.Scan(&record.Method, &record.Path, &query, &headers, &body, &record.Status, &record.DurationMS, &timestamp, &responseHeaders, &responseBody); err != nil {
 			return nil, fmt.Errorf("scan request record: %w", err)
 		}
 		if err := unmarshalNullable(query, &record.Query); err != nil {
@@ -200,6 +212,12 @@ func (s *SQLite) Recent(ctx context.Context, limit int) ([]domain.RequestRecord,
 		}
 		if err := unmarshalNullable(body, &record.Body); err != nil {
 			return nil, fmt.Errorf("decode request body: %w", err)
+		}
+		if err := unmarshalNullable(responseHeaders, &record.ResponseHeaders); err != nil {
+			return nil, fmt.Errorf("decode response headers: %w", err)
+		}
+		if err := unmarshalNullable(responseBody, &record.ResponseBody); err != nil {
+			return nil, fmt.Errorf("decode response body: %w", err)
 		}
 		record.Timestamp, err = time.Parse(time.RFC3339Nano, timestamp)
 		if err != nil {

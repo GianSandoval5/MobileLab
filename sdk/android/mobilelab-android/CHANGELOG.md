@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- Coordinated package release; protocol v1 remains unchanged.
+
 ## 0.4.0
 
 - Initial Kotlin client for MobileLab protocol v1.

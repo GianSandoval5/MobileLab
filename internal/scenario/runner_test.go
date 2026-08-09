@@ -52,6 +52,25 @@ func TestRunnerReportsMissingApplicationID(t *testing.T) {
 	}
 }
 
+func TestRunnerWaitsForRepeatedHTTPExchangesInOrder(t *testing.T) {
+	now := time.Now().UTC()
+	environment := &fakeEnvironment{records: []domain.RequestRecord{
+		{Method: "GET", Path: "/profile", Status: 200, Timestamp: now.Add(time.Millisecond)},
+		{Method: "GET", Path: "/profile", Status: 200, Timestamp: now.Add(2 * time.Millisecond)},
+	}}
+	definition := domain.ScenarioDefinition{Name: "Repeated requests", Steps: []domain.ScenarioStep{
+		{Kind: domain.StepWaitForHTTP, Value: "GET /profile 200"},
+		{Kind: domain.StepSetLatency, Value: "25"},
+		{Kind: domain.StepWaitForHTTP, Value: "GET /profile 200"},
+	}}
+	result, err := (Runner{Environment: environment, Device: &device.FakeAdapter{}, Now: func() time.Time { return now }}).Run(
+		context.Background(), definition, domain.ScenarioRunOptions{Timeout: time.Millisecond},
+	)
+	if err != nil || !result.Passed || len(result.Steps) != 3 || environment.latency != 25 {
+		t.Fatalf("unexpected result=%#v environment=%#v err=%v", result, environment, err)
+	}
+}
+
 func TestEvaluateAssertionsCorrelatesResponseWithPreviousRequest(t *testing.T) {
 	records := []domain.RequestRecord{
 		{Method: "POST", Path: "/payments", Status: 200},

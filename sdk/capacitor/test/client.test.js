@@ -73,6 +73,6 @@ test('HTTP transport posts JSON to the SDK bridge path', async () => {
   await client.marker('transport.ready');
 
   assert.equal(requestUrl.pathname, '/__mobilelab/sdk/events');
-  assert.equal(requestInit.headers['X-MobileLab-SDK'], '@mobilelab/capacitor/0.4.0');
+  assert.equal(requestInit.headers['X-MobileLab-SDK'], '@mobilelab/capacitor/0.5.0');
   assert.equal(JSON.parse(requestInit.body).name, 'transport.ready');
 });

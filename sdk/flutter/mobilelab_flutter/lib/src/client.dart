@@ -23,7 +23,7 @@ final class MobileLabHttpTransport implements MobileLabTransport {
     try {
       final request = await client.postUrl(eventsUri).timeout(timeout);
       request.headers.contentType = ContentType.json;
-      request.headers.set('X-MobileLab-SDK', 'mobilelab_flutter/0.4.0');
+      request.headers.set('X-MobileLab-SDK', 'mobilelab_flutter/0.5.0');
       request.write(jsonEncode(event));
       final response = await request.close().timeout(timeout);
       await response.drain<void>();

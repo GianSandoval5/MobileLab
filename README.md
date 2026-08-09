@@ -2,7 +2,7 @@
 
 MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
 
-> Status: **v0.4.0** optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
+> Status: **v0.5.0** record/replay workflows plus optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
 
 ## Why MobileLab?
 
@@ -163,6 +163,21 @@ The fake platform is intended for engine/CI tests. Assertions poll only requests
 
 `app_event` assertions likewise consider only events received after the scenario starts. `framework` is optional; `kind` is `lifecycle`, `marker`, or `assertion`. When `passed` is omitted for an assertion, MobileLab requires the SDK assertion to report `true`.
 
+## Record and replay
+
+With the environment running, start an interactive recording in a second terminal:
+
+```sh
+mobilelab record login
+# Exercise the app, change API/auth state, and open deep links.
+# Press Ctrl+C when finished.
+mobilelab replay login --platform android --device emulator-5554 --app-id com.example.app
+```
+
+For scripts, use `--duration 30s`. Existing scenario files are protected unless `--force` is explicit. Core records one session at a time and captures sanitized HTTP request/response metadata and JSON bodies (maximum 1 MiB), successful MobileLab deep links, and runtime latency/error/auth/reset changes. The generated file is written atomically under `mobilelab/scenarios/`, parsed by the same strict YAML parser, and includes HTTP synchronization points so later fault changes cannot overtake earlier observed requests during replay. An empty capture is rejected without creating a scenario.
+
+Recorded secrets remain `[REDACTED]`; a recording never has access to the original authorization, cookie, token, password, or configured sensitive values. Replay executes actions and validates observed request/status pairs—it does not resend captured credentials or arbitrary production traffic.
+
 ## Optional framework SDKs
 
 The optional SDKs share protocol v1 and send lifecycle, marker, and assertion events to `POST /__mobilelab/sdk/events`:
@@ -234,7 +249,7 @@ Unit tests cover strict configuration, project detection, secret redaction, fixt
 - Android Emulator Ethernet/cellular latency and speed shaping is partial; reliable offline mode and iOS network conditioning are unavailable. Local push is limited to booted iOS Simulators with supported Xcode tooling.
 - OpenAPI import does not yet support external references, callbacks, GraphQL, gRPC, or sophisticated example generation.
 - All framework integrations are optional observability SDKs; they are not required for the API Sandbox.
-- SQLite retention/pruning policy is not implemented yet; schema migrations currently cover versions 1 and 2.
+- SQLite retention/pruning policy is not implemented yet; schema migrations currently cover versions 1 through 3. Active recordings are process-local and are finalized by the `record` command.
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 

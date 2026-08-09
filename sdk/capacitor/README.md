@@ -2,7 +2,7 @@
 
 Optional Capacitor hooks using MobileLab protocol v1. The API Sandbox works without this package; add it only for lifecycle events, markers, and scenario assertions.
 
-Install the v0.4 GitHub Release asset locally with `npm install ./mobilelab-capacitor-0.4.0.tgz`.
+Install the v0.5 GitHub Release asset locally with `npm install ./mobilelab-capacitor-0.5.0.tgz`.
 
 The package takes the Capacitor App plugin through a structural interface, so it does not bundle or impose a second `@capacitor/app` version:
 

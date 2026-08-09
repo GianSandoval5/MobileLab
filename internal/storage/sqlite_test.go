@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +20,7 @@ func TestSQLitePersistsSanitizedRequestsAcrossReopen(t *testing.T) {
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	records := []domain.RequestRecord{
-		{Method: "GET", Path: "/first", Status: 200, DurationMS: 2, Timestamp: now, Headers: map[string][]string{"Authorization": {"[REDACTED]"}}},
+		{Method: "GET", Path: "/first", Status: 200, DurationMS: 2, Timestamp: now, Headers: map[string][]string{"Authorization": {"[REDACTED]"}}, ResponseHeaders: map[string][]string{"Content-Type": {"application/json"}}, ResponseBody: map[string]any{"token": "[REDACTED]"}},
 		{Method: "POST", Path: "/second", Status: 500, DurationMS: 8, Timestamp: now.Add(time.Second), Body: map[string]any{"password": "[REDACTED]"}},
 	}
 	for _, record := range records {
@@ -45,6 +46,9 @@ func TestSQLitePersistsSanitizedRequestsAcrossReopen(t *testing.T) {
 	}
 	if recent[0].Headers["Authorization"][0] != "[REDACTED]" {
 		t.Fatalf("sanitized header changed: %#v", recent[0].Headers)
+	}
+	if recent[0].ResponseHeaders["Content-Type"][0] != "application/json" || recent[0].ResponseBody.(map[string]any)["token"] != "[REDACTED]" {
+		t.Fatalf("response capture changed: %#v", recent[0])
 	}
 	body := recent[1].Body.(map[string]any)
 	if body["password"] != "[REDACTED]" {
@@ -143,21 +147,26 @@ func TestSQLiteRejectsNewerSchema(t *testing.T) {
 
 func TestSQLiteMigratesVersionOneDatabaseToAppEvents(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "mobilelab.db")
-	store, err := OpenSQLite(path)
+	database, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.db.Exec("DROP TABLE app_events"); err != nil {
+	statements := append([]string{
+		`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`,
+	}, migrations[1]...)
+	for _, statement := range statements {
+		if _, err := database.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := database.Exec("INSERT INTO schema_migrations(version, applied_at) VALUES(1, ?)", time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.db.Exec("DELETE FROM schema_migrations WHERE version = 2"); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Close(); err != nil {
+	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	store, err = OpenSQLite(path)
+	store, err := OpenSQLite(path)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-09
+
+### Added
+
+- Typed, concurrency-safe Core recorder with one explicit active session and ordered HTTP exchange, environment mutation, and deep-link events.
+- `mobilelab record <name>` with interactive Ctrl+C finalization, bounded `--duration`, protected existing files, and explicit `--force` editing.
+- `mobilelab replay <name>` as a thin alias over the existing platform-neutral scenario runner.
+- Deterministic strict YAML generation and atomic scenario writes for recorded request/status assertions, HTTP ordering barriers, deep links, latency, forced errors, auth changes, and resets.
+- Response header/body capture with the existing nested secret redaction and 1 MiB capture limit.
+- SQLite schema v3 migration for sanitized response evidence and end-to-end recorder coverage through the live Core control boundary.
+
+### Changed
+
+- Coordinated all optional SDK package versions at 0.5.0 without changing protocol v1.
+- Release validation now requires the source CLI and Makefile versions to match the pushed tag, preventing development fallback versions in future source tags.
+
 ## [0.4.0] - 2026-08-09
 
 ### Added
@@ -85,6 +101,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
 [Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v0.4.0...HEAD
+[0.5.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.1.0...v0.2.0

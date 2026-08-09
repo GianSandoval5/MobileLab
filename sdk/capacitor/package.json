@@ -1,6 +1,6 @@
 {
   "name": "@mobilelab/capacitor",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Optional Capacitor lifecycle, marker, and assertion hooks for MobileLab.",
   "type": "module",
   "main": "./dist/index.js",

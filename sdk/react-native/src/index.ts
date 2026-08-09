@@ -50,7 +50,7 @@ export class MobileLabHttpTransport implements MobileLabTransport {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-MobileLab-SDK': '@mobilelab/react-native/0.4.0',
+          'X-MobileLab-SDK': '@mobilelab/react-native/0.5.0',
         },
         body: JSON.stringify(event),
         signal: controller.signal,

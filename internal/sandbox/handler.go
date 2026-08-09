@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,11 +25,16 @@ type Handler struct {
 	endpoints    map[string]config.EndpointDefinition
 	tokens       *tokenIssuer
 	events       domain.EventPublisher
+	recorder     domain.CaptureSink
 	onError      func(error)
 }
 
 func (h *Handler) SetEventPublisher(publisher domain.EventPublisher) {
 	h.events = publisher
+}
+
+func (h *Handler) SetCaptureSink(recorder domain.CaptureSink) {
+	h.recorder = recorder
 }
 
 func (h *Handler) SetErrorHandler(handler func(error)) {
@@ -73,7 +79,8 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	record := domain.RequestRecord{
 		Method: request.Method, Path: request.URL.Path,
 		Query: RedactQuery(request.URL.Query()), Headers: RedactHeaders(request.Header), Body: body,
-		Status: statusRecorder.status, DurationMS: time.Since(started).Milliseconds(), Timestamp: started.UTC(),
+		Status: statusRecorder.status, ResponseHeaders: RedactHeaders(statusRecorder.Header()), ResponseBody: statusRecorder.capturedBody(),
+		DurationMS: time.Since(started).Milliseconds(), Timestamp: started.UTC(),
 	}
 	if err := h.requests.Append(request.Context(), record); err != nil {
 		h.reportError(fmt.Errorf("record request: %w", err))
@@ -83,6 +90,11 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		event := domain.Event{Type: domain.EventRequestRecorded, Version: 1, Timestamp: record.Timestamp, Payload: record}
 		if err := h.events.Publish(request.Context(), event); err != nil {
 			h.reportError(fmt.Errorf("publish request event: %w", err))
+		}
+	}
+	if h.recorder != nil {
+		if err := h.recorder.RecordCapture(request.Context(), domain.CaptureEvent{Kind: domain.CaptureHTTPExchange, Timestamp: record.Timestamp, HTTP: &record}); err != nil {
+			h.reportError(fmt.Errorf("capture HTTP exchange: %w", err))
 		}
 	}
 }
@@ -279,10 +291,50 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 
 type responseRecorder struct {
 	http.ResponseWriter
-	status int
+	status      int
+	body        bytes.Buffer
+	truncated   bool
+	wroteHeader bool
 }
 
 func (r *responseRecorder) WriteHeader(status int) {
+	if r.wroteHeader {
+		return
+	}
+	r.wroteHeader = true
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *responseRecorder) Write(data []byte) (int, error) {
+	if !r.wroteHeader {
+		r.wroteHeader = true
+		r.status = http.StatusOK
+	}
+	remaining := maxCapturedBody - r.body.Len()
+	if remaining > 0 {
+		captured := data
+		if len(captured) > remaining {
+			captured = captured[:remaining]
+			r.truncated = true
+		}
+		_, _ = r.body.Write(captured)
+	} else if len(data) > 0 {
+		r.truncated = true
+	}
+	return r.ResponseWriter.Write(data)
+}
+
+func (r *responseRecorder) capturedBody() any {
+	if r.truncated {
+		return "[TRUNCATED RESPONSE BODY]"
+	}
+	if r.body.Len() == 0 {
+		return nil
+	}
+	var decoded any
+	if json.Unmarshal(r.body.Bytes(), &decoded) == nil {
+		return RedactValue(decoded)
+	}
+	return "[NON-JSON BODY]"
 }

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/mobilelab-dev/mobilelab/internal/app"
 	"github.com/mobilelab-dev/mobilelab/internal/config"
@@ -20,12 +21,13 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/doctor"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	openapiimport "github.com/mobilelab-dev/mobilelab/internal/openapi"
+	"github.com/mobilelab-dev/mobilelab/internal/recording"
 	"github.com/mobilelab-dev/mobilelab/internal/reporting"
 	"github.com/mobilelab-dev/mobilelab/internal/runtime"
 	"github.com/mobilelab-dev/mobilelab/internal/scenario"
 )
 
-var Version = "0.4.0"
+var Version = "0.5.0-dev"
 
 type Runner struct {
 	Out            io.Writer
@@ -72,6 +74,13 @@ func (r Runner) Run(ctx context.Context, args []string) error {
 		return r.runScenario(ctx, args[1:])
 	case "scenario":
 		return r.scenarioCommand(ctx, args[1:])
+	case "record":
+		return r.record(ctx, args[1:])
+	case "replay":
+		if len(args) < 2 {
+			return fmt.Errorf("usage: mobilelab replay <name> [scenario options]")
+		}
+		return r.scenarioCommand(ctx, append([]string{"run"}, args[1:]...))
 	case "start":
 		return r.start(ctx, args[1:])
 	case "status":
@@ -314,6 +323,12 @@ func (r Runner) deepLink(ctx context.Context, args []string) error {
 	}
 	if err := adapter.OpenDeepLink(ctx, detected.ID, args[1]); err != nil {
 		return fmt.Errorf("unable to open deep link on %s: %w", detected.Name, err)
+	}
+	if err := (runtime.Client{ConfigPath: r.configPath()}).RecordCapture(ctx, domain.CaptureEvent{
+		Kind:     domain.CaptureDeepLink,
+		DeepLink: &domain.DeepLinkCapture{URL: args[1], Platform: detected.Platform, DeviceID: detected.ID},
+	}); err != nil {
+		fmt.Fprintf(r.Err, "! Deep link was not recorded: %v\n", err)
 	}
 	fmt.Fprintf(r.Out, "Deep link opened on %s.\n", detected.Name)
 	return nil
@@ -716,8 +731,92 @@ func (r Runner) listScenarios() error {
 	return nil
 }
 
+func (r Runner) record(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: mobilelab record <name> [--duration 30s] [--force]")
+	}
+	name := strings.TrimSuffix(args[0], ".yaml")
+	if filepath.Base(name) != name || name == "." || name == ".." {
+		return fmt.Errorf("recording name must be a safe file name")
+	}
+	force := false
+	var duration time.Duration
+	for index := 1; index < len(args); index++ {
+		switch args[index] {
+		case "--force":
+			force = true
+		case "--duration":
+			if index+1 >= len(args) {
+				return fmt.Errorf("--duration requires a value such as 30s")
+			}
+			index++
+			parsed, err := time.ParseDuration(args[index])
+			if err != nil || parsed <= 0 || parsed > 24*time.Hour {
+				return fmt.Errorf("duration must be greater than zero and no more than 24h")
+			}
+			duration = parsed
+		default:
+			return fmt.Errorf("unknown record option %q", args[index])
+		}
+	}
+	path := filepath.Join(r.Dir, "mobilelab", "scenarios", name+".yaml")
+	if !force {
+		if _, err := os.Stat(path); err == nil {
+			return fmt.Errorf("scenario %s already exists; use --force to replace it", filepath.Base(path))
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	client := runtime.Client{ConfigPath: r.configPath()}
+	started, err := client.StartRecording(ctx, name)
+	if err != nil {
+		return fmt.Errorf("start recording: %w", err)
+	}
+	fmt.Fprintf(r.Out, "Recording %s started at %s.\n", started.Name, started.StartedAt.Local().Format(time.RFC3339))
+	if duration == 0 {
+		fmt.Fprintln(r.Out, "Exercise the application now; press Ctrl+C to stop and generate the scenario.")
+		<-ctx.Done()
+	} else {
+		fmt.Fprintf(r.Out, "Capturing for %s...\n", duration)
+		timer := time.NewTimer(duration)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+		case <-timer.C:
+		}
+	}
+	stopContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer cancel()
+	captured, err := client.StopRecording(stopContext)
+	if err != nil {
+		return fmt.Errorf("stop recording: %w", err)
+	}
+	if len(captured.Events) == 0 {
+		return fmt.Errorf("recording captured no events; no scenario was written")
+	}
+	definition, err := recording.GenerateScenario(captured)
+	if err != nil {
+		return err
+	}
+	data, err := recording.EncodeScenario(definition)
+	if err != nil {
+		return err
+	}
+	if err := recording.WriteScenario(path, data, force); err != nil {
+		return err
+	}
+	fmt.Fprintf(r.Out, "Recorded %d event(s) to %s. Replay with 'mobilelab replay %s'.\n", len(captured.Events), path, name)
+	return nil
+}
+
 func (r Runner) scenarioDevice(ctx context.Context, definition domain.ScenarioDefinition, platform, requestedID string) (domain.DeviceAdapter, string, error) {
-	needsDevice := definition.Device.Network != "" || len(definition.Steps) > 0
+	needsDevice := definition.Device.Network != ""
+	for _, step := range definition.Steps {
+		if step.Kind == domain.StepLaunchApp || step.Kind == domain.StepStopApp || step.Kind == domain.StepOpenDeepLink {
+			needsDevice = true
+			break
+		}
+	}
 	if platform == "fake" || (!needsDevice && platform == "") {
 		return &device.FakeAdapter{}, requestedID, nil
 	}
@@ -822,6 +921,8 @@ Available commands:
   device     List/select devices and control app/device lifecycle
   run        Execute a portable YAML scenario and report PASS/FAIL
   scenario   List, run, and inspect persistent scenario history
+  record     Capture app traffic/actions into a portable YAML scenario
+  replay     Execute a recorded scenario through the standard runner
   version    Print the MobileLab version
   help       Show this help`)
 }

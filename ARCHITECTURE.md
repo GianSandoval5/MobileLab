@@ -17,6 +17,8 @@ From 0.3 onward, optional SDKs share a versioned HTTP event contract owned by th
 
 For 0.4, Android, iOS, and Capacitor use the same protocol v1 endpoint and domain event model as Flutter and React Native. Supported framework identifiers are centralized in the domain instead of being repeated across transports. Native packages use platform HTTP primitives, expose injectable transports for deterministic tests, and add lifecycle helpers at their own boundary. The Kotlin client stays Android-compatible without requiring Android classes in its core artifact; `MobileLabKit` conditionally layers UIKit observation over a Foundation client; the Capacitor package accepts the App plugin through a narrow structural interface so installing the SDK does not add a second Capacitor runtime.
 
+For 0.5, recording is an application service behind a typed domain port. Core owns at most one active recording and accepts already-sanitized HTTP exchanges, runtime environment mutations, and successful deep links from their existing adapters. Stopping a recording returns an immutable ordered event stream; a separate generator converts it to the public scenario model and writes YAML atomically. Generated HTTP synchronization steps preserve event order across later environment mutations, while final request/response assertions retain the readable result report. Replay remains an alias over the existing scenario runner, so recorded scenarios do not introduce a second execution engine.
+
 ## Dependency rule
 
 Dependencies point inward:
@@ -87,6 +89,8 @@ Scenario execution is platform-neutral. A scenario selects an adapter at the com
 SQLite implements the `RequestRepository` and `ScenarioRunRepository` ports in `mobilelab/mobilelab.db`. Schema migrations are transactional and versioned, WAL mode and a bounded busy timeout support concurrent dashboard/control reads, and results are returned in chronological order from a bounded recent window. The in-memory repository remains available for deterministic tests. Secrets are redacted before crossing the repository boundary. PID/control metadata is intentionally a small owner-only state file, not domain persistence.
 
 Schema v2 adds `AppEventRepository`. The public SDK ingestion endpoint accepts only protocol v1 DTOs, converts them to domain events, replaces sensitive nested attributes before storage, and then publishes `app.event`. The authenticated control adapter exposes recent app events to the scenario runner; SDK clients never receive the control token.
+
+Schema v3 adds sanitized response headers and response bodies to request history. Recording sessions themselves are deliberately process-local in v0.5: the active Core owns ordering and finalization, while the generated YAML is the durable portable artifact. An interrupted Core cannot claim that an incomplete recording was finalized.
 
 ## Device adapters
 

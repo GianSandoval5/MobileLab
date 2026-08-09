@@ -94,6 +94,34 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 		t.Fatalf("runtime request observation failed: %#v, %v", recent, err)
 	}
 	client := Client{ConfigPath: configPath}
+	startedRecording, err := client.StartRecording(context.Background(), "login")
+	if err != nil || startedRecording.Name != "login" {
+		t.Fatalf("start recording: %#v, %v", startedRecording, err)
+	}
+	if err := SetLatency(context.Background(), configPath, 125); err != nil {
+		t.Fatal(err)
+	}
+	if event := readRuntimeEvent(t, connection); event.Type != domain.EventStateChanged {
+		t.Fatalf("recorded latency did not publish state: %#v", event)
+	}
+	if err := client.RecordCapture(context.Background(), domain.CaptureEvent{Kind: domain.CaptureDeepLink, DeepLink: &domain.DeepLinkCapture{URL: "myapp://login"}}); err != nil {
+		t.Fatal(err)
+	}
+	response = get(t, "http://"+cfg.Address()+"/api/profile")
+	response.Body.Close()
+	if event := readRuntimeEvent(t, connection); event.Type != domain.EventRequestRecorded {
+		t.Fatalf("recorded HTTP did not publish request: %#v", event)
+	}
+	captured, err := client.StopRecording(context.Background())
+	if err != nil || len(captured.Events) != 3 {
+		t.Fatalf("stop recording: %#v, %v", captured, err)
+	}
+	if captured.Events[0].Kind != domain.CaptureEnvironment || captured.Events[1].Kind != domain.CaptureDeepLink || captured.Events[2].Kind != domain.CaptureHTTPExchange {
+		t.Fatalf("recording order changed: %#v", captured.Events)
+	}
+	if captured.Events[2].HTTP.ResponseBody.(map[string]any)["id"] != "123" {
+		t.Fatalf("response body missing from recording: %#v", captured.Events[2])
+	}
 	run := domain.ScenarioResult{Name: "Persistent run", Passed: true, StartedAt: time.Now().UTC(), DurationMS: 12}
 	if err := client.Save(context.Background(), run); err != nil {
 		t.Fatalf("save scenario run: %v", err)

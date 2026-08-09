@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -34,6 +36,12 @@ const (
 	StepLaunchApp    ScenarioStepKind = "launch_app"
 	StepStopApp      ScenarioStepKind = "stop_app"
 	StepOpenDeepLink ScenarioStepKind = "open_deeplink"
+	StepSetLatency   ScenarioStepKind = "set_latency"
+	StepSetError     ScenarioStepKind = "set_error"
+	StepResetAPI     ScenarioStepKind = "reset_api"
+	StepExpireAuth   ScenarioStepKind = "expire_auth"
+	StepResetAuth    ScenarioStepKind = "reset_auth"
+	StepWaitForHTTP  ScenarioStepKind = "wait_for_http"
 )
 
 type ScenarioStep struct {
@@ -121,10 +129,24 @@ func (d ScenarioDefinition) Validate() error {
 	}
 	for index, step := range d.Steps {
 		switch step.Kind {
-		case StepLaunchApp, StepStopApp:
+		case StepLaunchApp, StepStopApp, StepResetAPI, StepExpireAuth, StepResetAuth:
 		case StepOpenDeepLink:
 			if step.Value == "" {
 				return fmt.Errorf("steps[%d] open_deeplink requires a value", index)
+			}
+		case StepSetLatency:
+			value, err := strconv.Atoi(step.Value)
+			if err != nil || value < 0 || value > 300_000 {
+				return fmt.Errorf("steps[%d] set_latency must be between 0 and 300000", index)
+			}
+		case StepSetError:
+			value, err := strconv.Atoi(step.Value)
+			if err != nil || value < 400 || value > 599 {
+				return fmt.Errorf("steps[%d] set_error must be between 400 and 599", index)
+			}
+		case StepWaitForHTTP:
+			if _, _, _, err := ParseHTTPWait(step.Value); err != nil {
+				return fmt.Errorf("steps[%d] wait_for_http: %w", index, err)
 			}
 		default:
 			return fmt.Errorf("steps[%d] has unsupported kind %q", index, step.Kind)
@@ -168,4 +190,18 @@ func (d ScenarioDefinition) Validate() error {
 		}
 	}
 	return nil
+}
+
+func ParseHTTPWait(value string) (method string, path string, status int, err error) {
+	fields := strings.Fields(value)
+	if len(fields) != 3 {
+		return "", "", 0, fmt.Errorf("must use the format METHOD /path STATUS")
+	}
+	method = strings.ToUpper(fields[0])
+	path = fields[1]
+	status, err = strconv.Atoi(fields[2])
+	if method == "" || !strings.HasPrefix(path, "/") || err != nil || status < 100 || status > 599 {
+		return "", "", 0, fmt.Errorf("must use the format METHOD /path STATUS with a status between 100 and 599")
+	}
+	return method, path, status, nil
 }

@@ -60,6 +60,22 @@ func (c Client) RecentAppEvents(ctx context.Context, limit int) ([]domain.AppEve
 	return appEvents, nil
 }
 
+func (c Client) StartRecording(ctx context.Context, name string) (domain.Recording, error) {
+	var recording domain.Recording
+	err := controlRequest(ctx, c.ConfigPath, http.MethodPost, "recording/start", map[string]string{"name": name}, &recording)
+	return recording, err
+}
+
+func (c Client) StopRecording(ctx context.Context) (domain.Recording, error) {
+	var recording domain.Recording
+	err := controlRequest(ctx, c.ConfigPath, http.MethodPost, "recording/stop", nil, &recording)
+	return recording, err
+}
+
+func (c Client) RecordCapture(ctx context.Context, event domain.CaptureEvent) error {
+	return controlRequest(ctx, c.ConfigPath, http.MethodPost, "recording/capture", event, nil)
+}
+
 func (c Client) Save(ctx context.Context, result domain.ScenarioResult) error {
 	return controlRequest(ctx, c.ConfigPath, http.MethodPost, "scenario-runs", result, nil)
 }

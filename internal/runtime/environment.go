@@ -20,6 +20,7 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/dashboard"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	eventbus "github.com/mobilelab-dev/mobilelab/internal/events"
+	"github.com/mobilelab-dev/mobilelab/internal/recording"
 	"github.com/mobilelab-dev/mobilelab/internal/sandbox"
 	"github.com/mobilelab-dev/mobilelab/internal/sdkbridge"
 	"github.com/mobilelab-dev/mobilelab/internal/storage"
@@ -34,6 +35,7 @@ type Environment struct {
 	runs       domain.ScenarioRunRepository
 	appEvents  domain.AppEventRepository
 	events     *eventbus.Bus
+	recorder   *recording.Service
 	startedAt  time.Time
 	stop       context.CancelFunc
 }
@@ -45,7 +47,7 @@ func NewEnvironment(configPath string, out io.Writer) (*Environment, error) {
 	}
 	return &Environment{
 		configPath: configPath, config: cfg, out: out,
-		state: sandbox.NewRuntimeState(cfg.Sandbox.LatencyMS), events: eventbus.NewBus(128),
+		state: sandbox.NewRuntimeState(cfg.Sandbox.LatencyMS), events: eventbus.NewBus(128), recorder: recording.NewService(),
 	}, nil
 }
 
@@ -72,6 +74,7 @@ func (e *Environment) Run(ctx context.Context) error {
 		return fmt.Errorf("create API sandbox: %w", err)
 	}
 	handler.SetEventPublisher(e.events)
+	handler.SetCaptureSink(e.recorder)
 	handler.SetErrorHandler(func(err error) { fmt.Fprintf(e.out, "! %v\n", err) })
 	listener, err := net.Listen("tcp", e.config.Address())
 	if err != nil {
@@ -199,6 +202,11 @@ func (e *Environment) controlHandler(token string) http.Handler {
 			writeControlJSON(writer, recent)
 			return
 		}
+		if action == "recording" && request.Method == http.MethodGet {
+			recording, active := e.recorder.ActiveRecording(request.Context())
+			writeControlJSON(writer, map[string]any{"active": active, "recording": recording})
+			return
+		}
 		if request.Method != http.MethodPost {
 			http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -216,6 +224,7 @@ func (e *Environment) controlHandler(token string) http.Handler {
 				return
 			}
 			e.state.SetLatency(input.Milliseconds)
+			e.captureEnvironment(request.Context(), "latency")
 			e.publishState(request.Context())
 			writer.WriteHeader(http.StatusNoContent)
 		case "error":
@@ -227,6 +236,7 @@ func (e *Environment) controlHandler(token string) http.Handler {
 				return
 			}
 			e.state.SetError(input.Status)
+			e.captureEnvironment(request.Context(), "error")
 			e.publishState(request.Context())
 			writer.WriteHeader(http.StatusNoContent)
 		case "auth":
@@ -238,10 +248,12 @@ func (e *Environment) controlHandler(token string) http.Handler {
 				return
 			}
 			e.state.SetAuthExpired(input.Expired)
+			e.captureEnvironment(request.Context(), "auth")
 			e.publishState(request.Context())
 			writer.WriteHeader(http.StatusNoContent)
 		case "reset":
 			e.state.Reset()
+			e.captureEnvironment(request.Context(), "reset")
 			e.publishState(request.Context())
 			writer.WriteHeader(http.StatusNoContent)
 		case "scenario-runs":
@@ -258,10 +270,59 @@ func (e *Environment) controlHandler(token string) http.Handler {
 			}
 			e.publish(request.Context(), domain.Event{Type: domain.EventScenarioCompleted, Version: 1, Timestamp: time.Now().UTC(), Payload: result})
 			writer.WriteHeader(http.StatusNoContent)
+		case "recording/start":
+			var input struct {
+				Name string `json:"name"`
+			}
+			decoder := json.NewDecoder(io.LimitReader(request.Body, 4096))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&input); err != nil {
+				http.Error(writer, "invalid recording request", http.StatusBadRequest)
+				return
+			}
+			recording, err := e.recorder.StartRecording(request.Context(), input.Name, e.environmentState())
+			if err != nil {
+				http.Error(writer, err.Error(), http.StatusConflict)
+				return
+			}
+			writeControlJSON(writer, recording)
+		case "recording/stop":
+			recording, err := e.recorder.StopRecording(request.Context())
+			if err != nil {
+				http.Error(writer, err.Error(), http.StatusConflict)
+				return
+			}
+			writeControlJSON(writer, recording)
+		case "recording/capture":
+			var event domain.CaptureEvent
+			decoder := json.NewDecoder(io.LimitReader(request.Body, 64<<10))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&event); err != nil || event.Kind != domain.CaptureDeepLink {
+				http.Error(writer, "only a valid deep-link capture is accepted", http.StatusBadRequest)
+				return
+			}
+			if err := e.recorder.RecordCapture(request.Context(), event); err != nil {
+				http.Error(writer, err.Error(), http.StatusBadRequest)
+				return
+			}
+			writer.WriteHeader(http.StatusNoContent)
 		default:
 			http.NotFound(writer, request)
 		}
 	})
+}
+
+func (e *Environment) environmentState() domain.EnvironmentState {
+	snapshot := e.state.Snapshot()
+	return domain.EnvironmentState{LatencyMS: snapshot.LatencyMS, ForcedError: snapshot.ForcedError, AuthExpired: snapshot.AuthExpired}
+}
+
+func (e *Environment) captureEnvironment(ctx context.Context, action string) {
+	state := e.environmentState()
+	mutation := domain.EnvironmentMutation{Action: action, LatencyMS: state.LatencyMS, ForcedError: state.ForcedError, AuthExpired: state.AuthExpired}
+	if err := e.recorder.RecordCapture(ctx, domain.CaptureEvent{Kind: domain.CaptureEnvironment, Environment: &mutation}); err != nil {
+		fmt.Fprintf(e.out, "! capture environment: %v\n", err)
+	}
 }
 
 func queryLimit(request *http.Request, defaultValue int) int {

@@ -51,7 +51,12 @@ All three SDKs remain transport adapters around protocol v1. Applications can co
 
 ## 0.5 — Record and replay
 
-Typed recorder ports, request/environment/deep-link capture, deterministic replay, and scenario editing workflows.
+- [x] typed, single-active-session recorder owned by Core
+- [x] sanitized HTTP request/response, environment mutation, and deep-link capture
+- [x] deterministic YAML scenario generation with atomic create/update writes
+- [x] `mobilelab record <name>` interactive and duration-limited workflows
+- [x] `mobilelab replay <name>` through the existing platform-neutral runner
+- [x] recorder unit/integration tests, documentation, CI, and release packaging
 
 ## 0.6 — CI reporting
 

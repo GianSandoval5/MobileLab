@@ -45,6 +45,9 @@ func TestHandlerServesFixtureAndRecordsRedactedRequest(t *testing.T) {
 	if body["password"] != redacted || body["safe"] != "value" {
 		t.Fatalf("request body was not redacted correctly: %#v", body)
 	}
+	if record.ResponseHeaders["Content-Type"][0] != "application/json" || record.ResponseBody.(map[string]any)["id"] != "123" {
+		t.Fatalf("response was not captured: %#v", record)
+	}
 }
 
 func TestHandlerAppliesAndResetsForcedError(t *testing.T) {

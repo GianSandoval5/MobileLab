@@ -62,6 +62,8 @@ jobs:
         run: |
           mkdir -p dist
           version="${GITHUB_REF_NAME#v}"
+          grep -qx "VERSION ?= $version" Makefile
+          grep -qx "var Version = \"$version\"" internal/cli/cli.go
           output="dist/mobilelab-${GOOS}-${GOARCH}${{ matrix.extension }}"
           go build -trimpath -ldflags "-s -w -X github.com/mobilelab-dev/mobilelab/internal/cli.Version=${version}" -o "$output" ./cmd/mobilelab
       - uses: actions/upload-artifact@v7
