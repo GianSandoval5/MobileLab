@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Updated GitHub Actions to their Node 24 generations and made release publication pass the repository explicitly when running without a checkout.
+
 ## [0.1.0] - 2026-08-09
 
 ### Added

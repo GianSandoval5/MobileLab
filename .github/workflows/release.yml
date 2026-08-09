@@ -12,8 +12,8 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.23.x'
           cache: true
@@ -48,8 +48,8 @@ jobs:
             extension: '.exe'
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.23.x'
           cache: true
@@ -64,7 +64,7 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           output="dist/mobilelab-${GOOS}-${GOARCH}${{ matrix.extension }}"
           go build -trimpath -ldflags "-s -w -X github.com/mobilelab-dev/mobilelab/internal/cli.Version=${version}" -o "$output" ./cmd/mobilelab
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: mobilelab-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
@@ -74,7 +74,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           pattern: mobilelab-*
           path: dist
@@ -84,4 +84,4 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "MobileLab $GITHUB_REF_NAME"
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "MobileLab $GITHUB_REF_NAME"
