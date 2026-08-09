@@ -27,7 +27,7 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/scenario"
 )
 
-var Version = "0.6.0"
+var Version = "0.7.0-dev"
 
 type Runner struct {
 	Out            io.Writer
