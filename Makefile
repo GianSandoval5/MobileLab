@@ -1,6 +1,6 @@
 GO ?= go
 BINARY := bin/mobilelab
-VERSION ?= 0.5.0
+VERSION ?= 0.6.0-dev
 LDFLAGS ?= -s -w -X github.com/mobilelab-dev/mobilelab/internal/cli.Version=$(VERSION)
 
 .PHONY: build test lint run clean release-check sdk-test sdk-flutter-test sdk-react-native-test sdk-android-test sdk-ios-test sdk-capacitor-test
