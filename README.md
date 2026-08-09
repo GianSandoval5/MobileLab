@@ -10,7 +10,7 @@ Mobile applications fail at boundaries: expired sessions, slow responses, malfor
 
 > Write the mobile scenario once. Run it everywhere.
 
-The Go core is a single process, binds to `127.0.0.1` by default, and does not require Node.js or Docker. Optional framework SDKs will add advanced integrations later; basic HTTP mocks do not need them.
+The Go core is a single process, binds to `127.0.0.1` by default, and does not require Node.js, Flutter, or Docker. Optional framework SDKs add advanced app events; basic HTTP mocks do not need them.
 
 ## Installation
 
@@ -134,6 +134,11 @@ expect:
       path: /api/payments
   - response:
       status: 500
+  - app_event:
+      framework: flutter
+      kind: assertion
+      name: checkout.ready
+      passed: true
 ```
 
 Run it while the environment is active:
@@ -155,6 +160,19 @@ mobilelab scenario history --json
 ```
 
 The fake platform is intended for engine/CI tests. Assertions poll only requests observed after the run begins. The runner resets temporary faults before and after every run.
+
+`app_event` assertions likewise consider only events received after the scenario starts. `framework` is optional; `kind` is `lifecycle`, `marker`, or `assertion`. When `passed` is omitted for an assertion, MobileLab requires the SDK assertion to report `true`.
+
+## Optional Flutter and React Native SDKs
+
+The v0.3 SDKs share protocol v1 and send lifecycle, marker, and assertion events to `POST /__mobilelab/sdk/events`:
+
+- Flutter: [`mobilelab_flutter`](sdk/flutter/mobilelab_flutter/README.md)
+- React Native: [`@mobilelab/react-native`](sdk/react-native/README.md)
+
+Both expose `lifecycle`, `marker`, `assertThat`, and an attachable lifecycle reporter. Events are strictly validated, limited to 64 KiB, sanitized, persisted in SQLite, streamed to the dashboard, and available to scenario assertions. SDK transport failures never crash automatic lifecycle callbacks.
+
+Android Emulator applications normally use `http://10.0.2.2:4566`; iOS Simulator normally uses `http://127.0.0.1:4566`. A physical device requires an explicitly reachable trusted-network bind. Development builds may also need Android cleartext HTTP or iOS local-network/ATS configuration. Do not enable those exceptions in production builds.
 
 ## Android and iOS
 
@@ -203,14 +221,14 @@ make lint
 make build
 ```
 
-Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, scenario parsing, and scenario execution. An integration test opens a temporary loopback server and verifies start/status/API fault/reset/stop. CI runs build, tests, and vet on Linux, macOS, and Windows without requiring Android or Xcode.
+Unit tests cover strict configuration, project detection, secret redaction, fixture confinement, auth, faults, routing, OpenAPI generation, device command construction, SDK protocol ingestion, and scenario execution. An integration test opens a temporary loopback server and verifies start/status/app events/API fault/reset/stop. Core CI runs on Linux, macOS, and Windows; separate SDK CI pins Flutter 3.44.4 and Node 22.23.2.
 
 ## Current limitations
 
 - Scenario device selection is first-ready unless `--device` is supplied; direct device, deep-link, location, network, and push commands accept explicit selectors.
 - Android Emulator Ethernet/cellular latency and speed shaping is partial; reliable offline mode and iOS network conditioning are unavailable. Local push is limited to booted iOS Simulators with supported Xcode tooling.
 - OpenAPI import does not yet support external references, callbacks, GraphQL, gRPC, or sophisticated example generation.
-- Framework SDKs and runnable Flutter/React Native/native example apps are not part of this first slice.
+- Flutter and React Native integrations are optional observability SDKs; native Android/iOS and Capacitor SDKs begin in v0.4.
 - SQLite retention/pruning policy and migrations beyond schema v1 are not implemented yet.
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

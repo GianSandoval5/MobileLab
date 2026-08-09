@@ -52,6 +52,14 @@ func (s *stepDTO) UnmarshalYAML(node *yaml.Node) error {
 type assertionDTO struct {
 	Request  *requestDTO  `yaml:"request,omitempty"`
 	Response *responseDTO `yaml:"response,omitempty"`
+	AppEvent *appEventDTO `yaml:"app_event,omitempty"`
+}
+
+type appEventDTO struct {
+	Framework string `yaml:"framework,omitempty"`
+	Kind      string `yaml:"kind"`
+	Name      string `yaml:"name"`
+	Passed    *bool  `yaml:"passed,omitempty"`
 }
 
 type requestDTO struct {
@@ -86,6 +94,14 @@ func (YAMLParser) Parse(data []byte) (domain.ScenarioDefinition, error) {
 		}
 		if assertion.Response != nil {
 			converted.Response = &domain.ResponseExpectation{Status: assertion.Response.Status}
+		}
+		if assertion.AppEvent != nil {
+			converted.AppEvent = &domain.AppEventExpectation{
+				Framework: domain.AppFramework(strings.ToLower(assertion.AppEvent.Framework)),
+				Kind:      domain.AppEventKind(strings.ToLower(assertion.AppEvent.Kind)),
+				Name:      assertion.AppEvent.Name,
+				Passed:    assertion.AppEvent.Passed,
+			}
 		}
 		definition.Assertions = append(definition.Assertions, converted)
 	}

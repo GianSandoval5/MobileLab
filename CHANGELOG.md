@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Versioned protocol v1 SDK Bridge with strict 64 KiB ingestion, nested secret redaction, SQLite app-event history, realtime dashboard updates, and authenticated scenario access.
+- Optional `mobilelab_flutter` and `@mobilelab/react-native` packages with lifecycle, marker, assertion, automatic lifecycle reporting, examples, and package-level tests.
+- Portable `app_event` scenario assertions filtered to events emitted after each run begins.
+- Flutter/Node toolchain detection, Node 18+ diagnostics, Android Emulator diagnostics, and pinned SDK CI on Flutter 3.44.4 and Node 22.23.2.
+
 ### Fixed
 
 - Updated GitHub artifact actions to their Node 24 generations after the v0.2.0 release warning.

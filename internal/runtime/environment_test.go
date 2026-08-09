@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,6 +59,23 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 	if event := readRuntimeEvent(t, connection); event.Type != domain.EventSnapshot {
 		t.Fatalf("dashboard did not send initial snapshot: %#v", event)
 	}
+	sdkBody := strings.NewReader(`{"protocolVersion":1,"framework":"flutter","kind":"lifecycle","name":"ready","attributes":{"token":"secret"}}`)
+	sdkResponse, err := http.Post("http://"+cfg.Address()+"/__mobilelab/sdk/events", "application/json", sdkBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sdkResponse.StatusCode != http.StatusAccepted {
+		data, _ := io.ReadAll(sdkResponse.Body)
+		t.Fatalf("SDK bridge returned %d: %s", sdkResponse.StatusCode, data)
+	}
+	sdkResponse.Body.Close()
+	if event := readRuntimeEvent(t, connection); event.Type != domain.EventAppReported {
+		t.Fatalf("dashboard did not receive app event: %#v", event)
+	}
+	appEvents, err := (Client{ConfigPath: configPath}).RecentAppEvents(context.Background(), 10)
+	if err != nil || len(appEvents) != 1 || appEvents[0].Name != "ready" || appEvents[0].Attributes["token"] != "[REDACTED]" {
+		t.Fatalf("runtime app event observation failed: %#v, %v", appEvents, err)
+	}
 
 	status, err := GetStatus(context.Background(), configPath)
 	if err != nil || status.PID < 1 {
@@ -88,7 +106,7 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 		t.Fatalf("runtime scenario history failed: %#v, %v", runs, err)
 	}
 	status, err = GetStatus(context.Background(), configPath)
-	if err != nil || status.ScenarioRuns != 1 {
+	if err != nil || status.ScenarioRuns != 1 || status.AppEvents != 1 {
 		t.Fatalf("status did not include scenario history: %#v, %v", status, err)
 	}
 
@@ -133,6 +151,10 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 	persistedRuns, err := store.ScenarioRuns().Recent(context.Background(), 10)
 	if err != nil || len(persistedRuns) != 1 || persistedRuns[0].Name != run.Name {
 		t.Fatalf("scenario history did not survive restart: %#v, %v", persistedRuns, err)
+	}
+	persistedAppEvents, err := store.RecentAppEvents(context.Background(), 10)
+	if err != nil || len(persistedAppEvents) != 1 || persistedAppEvents[0].Name != "ready" {
+		t.Fatalf("app event history did not survive restart: %#v, %v", persistedAppEvents, err)
 	}
 }
 

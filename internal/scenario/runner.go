@@ -113,7 +113,14 @@ func (r Runner) waitForAssertions(ctx context.Context, started time.Time, assert
 		if err != nil {
 			return []domain.ScenarioCheck{failedCheck("read observed requests", err)}
 		}
-		checks := evaluateAssertions(recordsSince(records, started), assertions)
+		var appEvents []domain.AppEvent
+		if hasAppEventAssertions(assertions) {
+			appEvents, err = r.Environment.RecentAppEvents(ctx, 500)
+			if err != nil {
+				return []domain.ScenarioCheck{failedCheck("read observed app events", err)}
+			}
+		}
+		checks := evaluateAssertions(recordsSince(records, started), appEventsSince(appEvents, started), assertions)
 		if allPassed(checks) || time.Now().After(deadline) {
 			return checks
 		}
@@ -127,10 +134,15 @@ func (r Runner) waitForAssertions(ctx context.Context, started time.Time, assert
 	}
 }
 
-func evaluateAssertions(records []domain.RequestRecord, assertions []domain.ScenarioAssertion) []domain.ScenarioCheck {
+func evaluateAssertions(records []domain.RequestRecord, appEvents []domain.AppEvent, assertions []domain.ScenarioAssertion) []domain.ScenarioCheck {
 	checks := make([]domain.ScenarioCheck, 0, len(assertions))
 	var previousRequest *domain.RequestExpectation
 	for _, assertion := range assertions {
+		if assertion.AppEvent != nil {
+			previousRequest = nil
+			checks = append(checks, evaluateAppEventAssertion(appEvents, *assertion.AppEvent))
+			continue
+		}
 		if assertion.Request != nil {
 			previousRequest = assertion.Request
 			name := assertion.Request.Method + " " + assertion.Request.Path + " observed"
@@ -173,6 +185,38 @@ func evaluateAssertions(records []domain.RequestRecord, assertions []domain.Scen
 	return checks
 }
 
+func evaluateAppEventAssertion(events []domain.AppEvent, expectation domain.AppEventExpectation) domain.ScenarioCheck {
+	name := fmt.Sprintf("app %s %s observed", expectation.Kind, expectation.Name)
+	for _, event := range events {
+		if event.Kind != expectation.Kind || event.Name != expectation.Name {
+			continue
+		}
+		if expectation.Framework != "" && event.Framework != expectation.Framework {
+			continue
+		}
+		if expectation.Kind == domain.AppEventAssertion {
+			wantPassed := true
+			if expectation.Passed != nil {
+				wantPassed = *expectation.Passed
+			}
+			if event.Passed == nil || *event.Passed != wantPassed {
+				return domain.ScenarioCheck{Name: name, Message: fmt.Sprintf("app assertion reported passed=%v", event.Passed != nil && *event.Passed)}
+			}
+		}
+		return passedCheck(name)
+	}
+	return domain.ScenarioCheck{Name: name, Message: "matching app event was not observed"}
+}
+
+func hasAppEventAssertions(assertions []domain.ScenarioAssertion) bool {
+	for _, assertion := range assertions {
+		if assertion.AppEvent != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func assertionPathMatches(pattern, observed string) bool {
 	if pattern == observed {
 		return true
@@ -201,6 +245,16 @@ func recordsSince(records []domain.RequestRecord, started time.Time) []domain.Re
 	for _, record := range records {
 		if !record.Timestamp.Before(started) {
 			result = append(result, record)
+		}
+	}
+	return result
+}
+
+func appEventsSince(events []domain.AppEvent, started time.Time) []domain.AppEvent {
+	result := make([]domain.AppEvent, 0, len(events))
+	for _, event := range events {
+		if !event.Timestamp.Before(started) {
+			result = append(result, event)
 		}
 	}
 	return result

@@ -13,6 +13,8 @@ The first release is a modular monolith distributed as one Go binary. It contain
 
 Framework SDKs remain optional. A Flutter, React Native, native Android, native iOS, or Capacitor application can use the HTTP sandbox without modifying application code beyond choosing the local endpoint.
 
+For 0.3, optional SDKs share a versioned HTTP event contract owned by the Core. Framework packages translate their native lifecycle and assertion APIs into that contract; they do not become device adapters and the Core never branches on application framework during scenario execution. Accepted events are validated, sanitized before persistence, and published through the existing typed event bus.
+
 ## Dependency rule
 
 Dependencies point inward:
@@ -79,6 +81,8 @@ Scenario execution is platform-neutral. A scenario selects an adapter at the com
 ## Persistence
 
 SQLite implements the `RequestRepository` and `ScenarioRunRepository` ports in `mobilelab/mobilelab.db`. Schema migrations are transactional and versioned, WAL mode and a bounded busy timeout support concurrent dashboard/control reads, and results are returned in chronological order from a bounded recent window. The in-memory repository remains available for deterministic tests. Secrets are redacted before crossing the repository boundary. PID/control metadata is intentionally a small owner-only state file, not domain persistence.
+
+Schema v2 adds `AppEventRepository`. The public SDK ingestion endpoint accepts only protocol v1 DTOs, converts them to domain events, replaces sensitive nested attributes before storage, and then publishes `app.event`. The authenticated control adapter exposes recent app events to the scenario runner; SDK clients never receive the control token.
 
 ## Device adapters
 

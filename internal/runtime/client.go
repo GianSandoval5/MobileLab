@@ -21,6 +21,7 @@ type Status struct {
 	AuthExpired  bool      `json:"auth_expired"`
 	Requests     int       `json:"requests"`
 	ScenarioRuns int       `json:"scenario_runs"`
+	AppEvents    int       `json:"app_events"`
 }
 
 type Client struct {
@@ -49,6 +50,14 @@ func (c Client) RecentRequests(ctx context.Context, limit int) ([]domain.Request
 		return nil, err
 	}
 	return records, nil
+}
+
+func (c Client) RecentAppEvents(ctx context.Context, limit int) ([]domain.AppEvent, error) {
+	var appEvents []domain.AppEvent
+	if err := controlRequest(ctx, c.ConfigPath, http.MethodGet, fmt.Sprintf("app-events?limit=%d", limit), nil, &appEvents); err != nil {
+		return nil, err
+	}
+	return appEvents, nil
 }
 
 func (c Client) Save(ctx context.Context, result domain.ScenarioResult) error {

@@ -61,7 +61,7 @@ func TestEvaluateAssertionsCorrelatesResponseWithPreviousRequest(t *testing.T) {
 		{Request: &domain.RequestExpectation{Method: "POST", Path: "/payments"}},
 		{Response: &domain.ResponseExpectation{Status: 500}},
 	}
-	checks := evaluateAssertions(records, assertions)
+	checks := evaluateAssertions(records, nil, assertions)
 	if len(checks) != 2 || !checks[0].Passed || checks[1].Passed {
 		t.Fatalf("unrelated HTTP 500 satisfied correlated assertion: %#v", checks)
 	}
@@ -79,9 +79,41 @@ func TestEvaluateAssertionsAcceptsCorrelatedResponse(t *testing.T) {
 		{Request: &domain.RequestExpectation{Method: "POST", Path: "/payments/{id}"}},
 		{Response: &domain.ResponseExpectation{Status: 500}},
 	}
-	checks := evaluateAssertions(records, assertions)
+	checks := evaluateAssertions(records, nil, assertions)
 	if !allPassed(checks) {
 		t.Fatalf("correlated response did not pass: %#v", checks)
+	}
+}
+
+func TestEvaluateAppEventAssertionsUsesOnlyMatchingFrameworkAndPassState(t *testing.T) {
+	failed := false
+	passed := true
+	events := []domain.AppEvent{
+		{Framework: domain.FrameworkReactNative, Kind: domain.AppEventAssertion, Name: "checkout.ready", Passed: &passed},
+		{Framework: domain.FrameworkFlutter, Kind: domain.AppEventAssertion, Name: "checkout.ready", Passed: &failed},
+	}
+	assertions := []domain.ScenarioAssertion{{AppEvent: &domain.AppEventExpectation{
+		Framework: domain.FrameworkFlutter, Kind: domain.AppEventAssertion, Name: "checkout.ready",
+	}}}
+	checks := evaluateAssertions(nil, events, assertions)
+	if len(checks) != 1 || checks[0].Passed || checks[0].Message != "app assertion reported passed=false" {
+		t.Fatalf("unexpected app assertion result: %#v", checks)
+	}
+}
+
+func TestRunnerIgnoresAppEventsBeforeScenarioStart(t *testing.T) {
+	now := time.Now().UTC()
+	environment := &fakeEnvironment{appEvents: []domain.AppEvent{{
+		Framework: domain.FrameworkFlutter, Kind: domain.AppEventMarker, Name: "ready", Timestamp: now.Add(-time.Second),
+	}}}
+	definition := domain.ScenarioDefinition{Name: "Fresh app marker", Assertions: []domain.ScenarioAssertion{{
+		AppEvent: &domain.AppEventExpectation{Kind: domain.AppEventMarker, Name: "ready"},
+	}}}
+	result, err := (Runner{Environment: environment, Device: &device.FakeAdapter{}, Now: func() time.Time { return now }}).Run(
+		context.Background(), definition, domain.ScenarioRunOptions{Timeout: time.Millisecond},
+	)
+	if err != nil || result.Passed || len(result.Assertions) != 1 || result.Assertions[0].Passed {
+		t.Fatalf("stale app event satisfied scenario: result=%#v err=%v", result, err)
 	}
 }
 
@@ -91,6 +123,7 @@ type fakeEnvironment struct {
 	authExpired bool
 	resets      int
 	records     []domain.RequestRecord
+	appEvents   []domain.AppEvent
 }
 
 func (f *fakeEnvironment) SetLatency(_ context.Context, value int) error {
@@ -108,6 +141,9 @@ func (f *fakeEnvironment) SetAuthExpired(_ context.Context, value bool) error {
 func (f *fakeEnvironment) Reset(context.Context) error { f.resets++; return nil }
 func (f *fakeEnvironment) RecentRequests(context.Context, int) ([]domain.RequestRecord, error) {
 	return f.records, nil
+}
+func (f *fakeEnvironment) RecentAppEvents(context.Context, int) ([]domain.AppEvent, error) {
+	return f.appEvents, nil
 }
 
 type fakeRunRepository struct {

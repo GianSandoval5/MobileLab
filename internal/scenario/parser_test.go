@@ -25,12 +25,17 @@ expect:
       path: /payments
   - response:
       status: 500
+  - app_event:
+      framework: flutter
+      kind: assertion
+      name: checkout.ready
+      passed: true
 `)
 	definition, err := (YAMLParser{}).Parse(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if definition.Backend.LatencyMS != 200 || definition.Steps[1].Kind != domain.StepOpenDeepLink || definition.Assertions[0].Request.Method != "POST" {
+	if definition.Backend.LatencyMS != 200 || definition.Steps[1].Kind != domain.StepOpenDeepLink || definition.Assertions[0].Request.Method != "POST" || definition.Assertions[2].AppEvent.Name != "checkout.ready" {
 		t.Fatalf("unexpected definition: %#v", definition)
 	}
 }
@@ -40,6 +45,7 @@ func TestYAMLParserRejectsUnknownAndUnsupportedOperations(t *testing.T) {
 		"name: test\nmystery: true\n",
 		"name: test\nsteps: [teleport]\n",
 		"name: test\nexpect:\n  - response: {status: 900}\n",
+		"name: test\nexpect:\n  - app_event: {kind: marker, name: ready, passed: true}\n",
 	} {
 		if _, err := (YAMLParser{}).Parse([]byte(input)); err == nil {
 			t.Errorf("expected parse failure for %q", input)

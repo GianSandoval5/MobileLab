@@ -21,6 +21,7 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	eventbus "github.com/mobilelab-dev/mobilelab/internal/events"
 	"github.com/mobilelab-dev/mobilelab/internal/sandbox"
+	"github.com/mobilelab-dev/mobilelab/internal/sdkbridge"
 	"github.com/mobilelab-dev/mobilelab/internal/storage"
 )
 
@@ -31,6 +32,7 @@ type Environment struct {
 	state      *sandbox.RuntimeState
 	requests   domain.RequestRepository
 	runs       domain.ScenarioRunRepository
+	appEvents  domain.AppEventRepository
 	events     *eventbus.Bus
 	startedAt  time.Time
 	stop       context.CancelFunc
@@ -63,6 +65,7 @@ func (e *Environment) Run(ctx context.Context) error {
 	defer e.events.Close()
 	e.requests = store
 	e.runs = store.ScenarioRuns()
+	e.appEvents = store
 
 	handler, err := sandbox.NewHandler(e.config, e.config.Workspace(e.configPath), e.state, e.requests)
 	if err != nil {
@@ -92,8 +95,9 @@ func (e *Environment) Run(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	mux.Handle("/__mobilelab/control/", e.controlHandler(token))
+	mux.Handle("/__mobilelab/sdk/events", sdkbridge.Handler{Repository: e.appEvents, Events: e.events})
 	if e.config.Dashboard.Enabled {
-		dashboardServer := dashboard.Server{Bus: e.events, Requests: e.requests, Runs: e.runs, State: func() any { return e.state.Snapshot() }}
+		dashboardServer := dashboard.Server{Bus: e.events, Requests: e.requests, Runs: e.runs, AppEvents: e.appEvents, State: func() any { return e.state.Snapshot() }}
 		mux.Handle("/dashboard", loopbackOnly(http.HandlerFunc(dashboardServer.Page)))
 		mux.Handle("/__mobilelab/events", loopbackOnly(http.HandlerFunc(dashboardServer.Events)))
 	}
@@ -149,10 +153,15 @@ func (e *Environment) controlHandler(token string) http.Handler {
 				http.Error(writer, "unable to read scenario history", http.StatusInternalServerError)
 				return
 			}
+			appEvents, err := e.appEvents.RecentAppEvents(request.Context(), 500)
+			if err != nil {
+				http.Error(writer, "unable to read app event history", http.StatusInternalServerError)
+				return
+			}
 			snapshot := e.state.Snapshot()
 			writeControlJSON(writer, Status{
 				PID: os.Getpid(), StartedAt: e.startedAt, Uptime: time.Since(e.startedAt).Round(time.Second).String(),
-				LatencyMS: snapshot.LatencyMS, Error: snapshot.ForcedError, AuthExpired: snapshot.AuthExpired, Requests: len(recent), ScenarioRuns: len(runs),
+				LatencyMS: snapshot.LatencyMS, Error: snapshot.ForcedError, AuthExpired: snapshot.AuthExpired, Requests: len(recent), ScenarioRuns: len(runs), AppEvents: len(appEvents),
 			})
 			return
 		}
@@ -176,6 +185,15 @@ func (e *Environment) controlHandler(token string) http.Handler {
 			recent, err := e.runs.Recent(request.Context(), limit)
 			if err != nil {
 				http.Error(writer, "unable to read scenario history", http.StatusInternalServerError)
+				return
+			}
+			writeControlJSON(writer, recent)
+			return
+		}
+		if action == "app-events" && request.Method == http.MethodGet {
+			recent, err := e.appEvents.RecentAppEvents(request.Context(), queryLimit(request, 100))
+			if err != nil {
+				http.Error(writer, "unable to read app event history", http.StatusInternalServerError)
 				return
 			}
 			writeControlJSON(writer, recent)

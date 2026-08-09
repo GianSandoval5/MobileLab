@@ -13,7 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const currentSchemaVersion = 1
+const currentSchemaVersion = 2
 
 type SQLite struct {
 	db *sql.DB
@@ -132,6 +132,20 @@ var migrations = map[int][]string{
 		)`,
 		`CREATE INDEX scenario_runs_started_at_idx ON scenario_runs(started_at DESC, id DESC)`,
 	},
+	2: {
+		`CREATE TABLE app_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			protocol_version INTEGER NOT NULL,
+			framework TEXT NOT NULL,
+			kind TEXT NOT NULL,
+			name TEXT NOT NULL,
+			passed INTEGER,
+			session_id TEXT,
+			attributes_json TEXT,
+			timestamp TEXT NOT NULL
+		)`,
+		`CREATE INDEX app_events_timestamp_idx ON app_events(timestamp DESC, id DESC)`,
+	},
 }
 
 func (s *SQLite) Append(ctx context.Context, record domain.RequestRecord) error {
@@ -241,6 +255,67 @@ func (s *SQLite) RecentScenarioRuns(ctx context.Context, limit int) ([]domain.Sc
 	return results, nil
 }
 
+func (s *SQLite) SaveAppEvent(ctx context.Context, event domain.AppEvent) error {
+	attributes, err := marshalNullable(event.Attributes)
+	if err != nil {
+		return fmt.Errorf("encode app event attributes: %w", err)
+	}
+	var passed any
+	if event.Passed != nil {
+		passed = *event.Passed
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO app_events(
+		protocol_version, framework, kind, name, passed, session_id, attributes_json, timestamp
+	) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
+		event.ProtocolVersion, event.Framework, event.Kind, event.Name, passed, event.SessionID, attributes, event.Timestamp.UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return fmt.Errorf("store app event: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLite) RecentAppEvents(ctx context.Context, limit int) ([]domain.AppEvent, error) {
+	limit = normalizedLimit(limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT protocol_version, framework, kind, name, passed, session_id, attributes_json, timestamp FROM (
+		SELECT id, protocol_version, framework, kind, name, passed, session_id, attributes_json, timestamp
+		FROM app_events ORDER BY timestamp DESC, id DESC LIMIT ?
+	) ORDER BY timestamp ASC, id ASC`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query recent app events: %w", err)
+	}
+	defer rows.Close()
+	var events []domain.AppEvent
+	for rows.Next() {
+		var event domain.AppEvent
+		var passed sql.NullBool
+		var sessionID, attributes sql.NullString
+		var timestamp string
+		if err := rows.Scan(&event.ProtocolVersion, &event.Framework, &event.Kind, &event.Name, &passed, &sessionID, &attributes, &timestamp); err != nil {
+			return nil, fmt.Errorf("scan app event: %w", err)
+		}
+		if passed.Valid {
+			value := passed.Bool
+			event.Passed = &value
+		}
+		if sessionID.Valid {
+			event.SessionID = sessionID.String
+		}
+		if err := unmarshalNullable(attributes, &event.Attributes); err != nil {
+			return nil, fmt.Errorf("decode app event attributes: %w", err)
+		}
+		event.Timestamp, err = time.Parse(time.RFC3339Nano, timestamp)
+		if err != nil {
+			return nil, fmt.Errorf("decode app event timestamp: %w", err)
+		}
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate app events: %w", err)
+	}
+	return events, nil
+}
+
 // Recent implements domain.ScenarioRunRepository through a named adapter method.
 // Go cannot overload Recent for both repository interfaces, so ScenarioRuns exposes
 // a small wrapper that preserves the domain ports without leaking SQL.
@@ -287,4 +362,5 @@ func normalizedLimit(limit int) int {
 var (
 	_ domain.RequestRepository     = (*SQLite)(nil)
 	_ domain.ScenarioRunRepository = ScenarioRuns{}
+	_ domain.AppEventRepository    = (*SQLite)(nil)
 )

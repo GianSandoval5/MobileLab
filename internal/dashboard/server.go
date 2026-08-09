@@ -13,10 +13,11 @@ import (
 )
 
 type Server struct {
-	Bus      *events.Bus
-	Requests domain.RequestRepository
-	Runs     domain.ScenarioRunRepository
-	State    func() any
+	Bus       *events.Bus
+	Requests  domain.RequestRepository
+	Runs      domain.ScenarioRunRepository
+	AppEvents domain.AppEventRepository
+	State     func() any
 }
 
 func (s Server) Page(writer http.ResponseWriter, _ *http.Request) {
@@ -26,7 +27,7 @@ func (s Server) Page(writer http.ResponseWriter, _ *http.Request) {
 }
 
 func (s Server) Events(writer http.ResponseWriter, request *http.Request) {
-	if s.Bus == nil || s.Requests == nil || s.Runs == nil || s.State == nil {
+	if s.Bus == nil || s.Requests == nil || s.Runs == nil || s.AppEvents == nil || s.State == nil {
 		http.Error(writer, "dashboard unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -54,9 +55,14 @@ func (s Server) Events(writer http.ResponseWriter, request *http.Request) {
 		_ = connection.Close(websocket.StatusInternalError, "scenario history unavailable")
 		return
 	}
+	appEvents, err := s.AppEvents.RecentAppEvents(ctx, 50)
+	if err != nil {
+		_ = connection.Close(websocket.StatusInternalError, "app event history unavailable")
+		return
+	}
 	initial := domain.Event{
 		Type: domain.EventSnapshot, Version: 1, Timestamp: time.Now().UTC(),
-		Payload: map[string]any{"state": s.State(), "requests": requests, "scenarios": runs},
+		Payload: map[string]any{"state": s.State(), "requests": requests, "scenarios": runs, "appEvents": appEvents},
 	}
 	if err := writeEvent(ctx, connection, initial); err != nil {
 		return
@@ -106,14 +112,16 @@ const pageHTML = `<!doctype html>
   <h1>MobileLab <span id="connection">connecting…</span></h1><p class="subtitle">Local mobile scenario environment</p>
   <div class="grid"><div class="card"><div class="label">API</div><div class="value online">ONLINE</div></div><div class="card"><div class="label">LATENCY</div><div class="value" id="latency">0ms</div></div><div class="card"><div class="label">FORCED ERROR</div><div class="value" id="error">inactive</div></div><div class="card"><div class="label">AUTH</div><div class="value" id="auth">active</div></div></div>
   <section><h2>Recent requests</h2><table><thead><tr><th>Time</th><th>Method</th><th>Path</th><th>Status</th><th>Duration</th></tr></thead><tbody id="requests"><tr><td colspan="5" class="empty">Waiting for requests…</td></tr></tbody></table></section>
+  <section><h2>App events</h2><table><thead><tr><th>Time</th><th>Framework</th><th>Kind</th><th>Name</th><th>Result</th></tr></thead><tbody id="app-events"><tr><td colspan="5" class="empty">Waiting for optional SDK events…</td></tr></tbody></table></section>
   <section><h2>Scenario runs</h2><table><thead><tr><th>Time</th><th>Name</th><th>Result</th><th>Duration</th></tr></thead><tbody id="scenarios"><tr><td colspan="4" class="empty">No scenario runs yet.</td></tr></tbody></table></section>
 </main><script>
-const requestRows=[],scenarioRows=[];
+const requestRows=[],appEventRows=[],scenarioRows=[];
 const text=(id,value)=>document.getElementById(id).textContent=value;
 function state(value){text('latency',(value.latency_ms||0)+'ms');text('error',value.forced_error?'HTTP '+value.forced_error:'inactive');text('auth',value.auth_expired?'expired':'active')}
 function time(value){return new Date(value).toLocaleTimeString()}
 function renderRequests(){const body=document.getElementById('requests');body.replaceChildren();requestRows.slice(-100).reverse().forEach(r=>{const row=document.createElement('tr');[time(r.timestamp),r.method,r.path,r.status,r.duration_ms+'ms'].forEach(v=>{const cell=document.createElement('td');cell.textContent=v;row.appendChild(cell)});body.appendChild(row)});if(!requestRows.length)body.innerHTML='<tr><td colspan="5" class="empty">Waiting for requests…</td></tr>'}
+function renderAppEvents(){const body=document.getElementById('app-events');body.replaceChildren();appEventRows.slice(-50).reverse().forEach(e=>{const result=e.kind==='assertion'?(e.passed?'PASS':'FAIL'):'—';const row=document.createElement('tr');[time(e.timestamp),e.framework,e.kind,e.name,result].forEach(v=>{const cell=document.createElement('td');cell.textContent=v;row.appendChild(cell)});body.appendChild(row)});if(!appEventRows.length)body.innerHTML='<tr><td colspan="5" class="empty">Waiting for optional SDK events…</td></tr>'}
 function renderScenarios(){const body=document.getElementById('scenarios');body.replaceChildren();scenarioRows.slice(-20).reverse().forEach(r=>{const row=document.createElement('tr');[time(r.started_at),r.name,r.passed?'PASS':'FAIL',r.duration_ms+'ms'].forEach(v=>{const cell=document.createElement('td');cell.textContent=v;row.appendChild(cell)});body.appendChild(row)});if(!scenarioRows.length)body.innerHTML='<tr><td colspan="4" class="empty">No scenario runs yet.</td></tr>'}
-function connect(){const socket=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/__mobilelab/events');socket.onopen=()=>text('connection','live');socket.onclose=()=>{text('connection','reconnecting…');setTimeout(connect,1000)};socket.onmessage=message=>{const event=JSON.parse(message.data);if(event.type==='environment.snapshot'){state(event.payload.state);requestRows.push(...(event.payload.requests||[]));scenarioRows.push(...(event.payload.scenarios||[]));renderRequests();renderScenarios()}else if(event.type==='request.recorded'){requestRows.push(event.payload);renderRequests()}else if(event.type==='environment.state_changed'){state(event.payload)}else if(event.type==='scenario.completed'){scenarioRows.push(event.payload);renderScenarios()}}}
+function connect(){const socket=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/__mobilelab/events');socket.onopen=()=>text('connection','live');socket.onclose=()=>{text('connection','reconnecting…');setTimeout(connect,1000)};socket.onmessage=message=>{const event=JSON.parse(message.data);if(event.type==='environment.snapshot'){state(event.payload.state);requestRows.push(...(event.payload.requests||[]));appEventRows.push(...(event.payload.appEvents||[]));scenarioRows.push(...(event.payload.scenarios||[]));renderRequests();renderAppEvents();renderScenarios()}else if(event.type==='request.recorded'){requestRows.push(event.payload);renderRequests()}else if(event.type==='app.event'){appEventRows.push(event.payload);renderAppEvents()}else if(event.type==='environment.state_changed'){state(event.payload)}else if(event.type==='scenario.completed'){scenarioRows.push(event.payload);renderScenarios()}}}
 connect();
 </script></body></html>`

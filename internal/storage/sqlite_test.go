@@ -99,6 +99,30 @@ func TestSQLitePersistsScenarioResults(t *testing.T) {
 	}
 }
 
+func TestSQLitePersistsAppEvents(t *testing.T) {
+	store, err := OpenSQLite(filepath.Join(t.TempDir(), "mobilelab.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	passed := true
+	want := domain.AppEvent{
+		ProtocolVersion: 1, Framework: domain.FrameworkFlutter, Kind: domain.AppEventAssertion,
+		Name: "checkout.loaded", Passed: &passed, SessionID: "run-1",
+		Attributes: map[string]any{"screen": "checkout"}, Timestamp: time.Now().UTC().Truncate(time.Microsecond),
+	}
+	if err := store.SaveAppEvent(context.Background(), want); err != nil {
+		t.Fatal(err)
+	}
+	events, err := store.RecentAppEvents(context.Background(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Name != want.Name || events[0].Passed == nil || !*events[0].Passed || events[0].Attributes["screen"] != "checkout" {
+		t.Fatalf("unexpected app events: %#v", events)
+	}
+}
+
 func TestSQLiteRejectsNewerSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "mobilelab.db")
 	store, err := OpenSQLite(path)
@@ -114,5 +138,32 @@ func TestSQLiteRejectsNewerSchema(t *testing.T) {
 	_, err = OpenSQLite(path)
 	if err == nil || !strings.Contains(err.Error(), "newer than supported") {
 		t.Fatalf("expected newer schema error, got %v", err)
+	}
+}
+
+func TestSQLiteMigratesVersionOneDatabaseToAppEvents(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mobilelab.db")
+	store, err := OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec("DROP TABLE app_events"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec("DELETE FROM schema_migrations WHERE version = 2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = OpenSQLite(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	event := domain.AppEvent{ProtocolVersion: 1, Framework: domain.FrameworkFlutter, Kind: domain.AppEventMarker, Name: "migrated", Timestamp: time.Now().UTC()}
+	if err := store.SaveAppEvent(context.Background(), event); err != nil {
+		t.Fatalf("schema v2 was not applied: %v", err)
 	}
 }

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 type Result struct {
@@ -16,6 +18,22 @@ type Result struct {
 
 type Detector interface {
 	Detect(root string) (Result, bool, error)
+}
+
+func Toolchains() ([]Result, error) {
+	var results []Result
+	if path, err := exec.LookPath("flutter"); err == nil {
+		results = append(results, Result{Name: "Flutter SDK", Evidence: []string{path}})
+	}
+	if path, err := exec.LookPath("node"); err == nil {
+		version, versionErr := exec.Command(path, "--version").Output()
+		evidence := path
+		if versionErr == nil {
+			evidence = strings.TrimSpace(string(version)) + " (" + path + ")"
+		}
+		results = append(results, Result{Name: "Node.js", Evidence: []string{evidence}})
+	}
+	return results, nil
 }
 
 type fileDetector struct {

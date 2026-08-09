@@ -30,7 +30,13 @@ Framework SDKs and complete runnable framework applications intentionally begin 
 
 ## 0.3 — Framework integrations
 
-Optional Flutter and React Native SDKs for advanced lifecycle/assertion hooks. API Sandbox remains SDK-free.
+- [x] versioned framework-neutral SDK event protocol and persistent Core ingestion
+- [x] optional `mobilelab_flutter` lifecycle, marker, and assertion hooks
+- [x] optional `@mobilelab/react-native` lifecycle, marker, and assertion hooks
+- [x] scenario assertions over app events emitted after a run starts
+- [x] framework tooling diagnostics, package-level tests, examples, and CI
+
+The API Sandbox remains SDK-free; these packages add only advanced observability hooks.
 
 ## 0.4 — Native and Capacitor integrations
 

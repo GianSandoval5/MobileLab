@@ -3,7 +3,7 @@ BINARY := bin/mobilelab
 VERSION ?= 0.3.0-dev
 LDFLAGS ?= -s -w -X github.com/mobilelab-dev/mobilelab/internal/cli.Version=$(VERSION)
 
-.PHONY: build test lint run clean release-check
+.PHONY: build test lint run clean release-check sdk-test sdk-flutter-test sdk-react-native-test
 
 build:
 	@mkdir -p bin
@@ -20,6 +20,14 @@ run:
 
 release-check: test lint build
 	@test "$$($(BINARY) --version)" = "MobileLab $(VERSION)"
+
+sdk-test: sdk-flutter-test sdk-react-native-test
+
+sdk-flutter-test:
+	cd sdk/flutter/mobilelab_flutter && flutter pub get && dart format --output=none --set-exit-if-changed lib test example/lib && flutter analyze && flutter test
+
+sdk-react-native-test:
+	cd sdk/react-native && npm ci && npm run check && npm test && npm pack --dry-run
 
 clean:
 	rm -rf bin coverage.out

@@ -109,7 +109,7 @@ func (r Runner) status(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to get MobileLab status: %w", err)
 	}
-	fmt.Fprintf(r.Out, "MobileLab is running\n✓ PID       %d\n✓ Uptime    %s\n✓ Requests  %d\n✓ Scenarios %d\n", status.PID, status.Uptime, status.Requests, status.ScenarioRuns)
+	fmt.Fprintf(r.Out, "MobileLab is running\n✓ PID       %d\n✓ Uptime    %s\n✓ Requests  %d\n✓ App events %d\n✓ Scenarios %d\n", status.PID, status.Uptime, status.Requests, status.AppEvents, status.ScenarioRuns)
 	fmt.Fprintf(r.Out, "  Latency   %dms\n", status.LatencyMS)
 	if status.Error != 0 {
 		fmt.Fprintf(r.Out, "! Error     HTTP %d forced\n", status.Error)
@@ -242,6 +242,17 @@ func (r Runner) detect(ctx context.Context) error {
 		for _, result := range results {
 			fmt.Fprintf(r.Out, "✓ %-14s %s\n", result.Name, strings.Join(result.Evidence, ", "))
 		}
+	}
+	toolchains, err := detect.Toolchains()
+	if err != nil {
+		return fmt.Errorf("unable to detect framework tooling: %w", err)
+	}
+	fmt.Fprintln(r.Out, "\nAvailable framework tooling:")
+	if len(toolchains) == 0 {
+		fmt.Fprintln(r.Out, "- None (optional; the MobileLab core remains available)")
+	}
+	for _, result := range toolchains {
+		fmt.Fprintf(r.Out, "✓ %-14s %s\n", result.Name, strings.Join(result.Evidence, ", "))
 	}
 	fmt.Fprintln(r.Out, "\nAvailable devices:")
 	devices := r.devices(ctx)

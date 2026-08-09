@@ -12,6 +12,7 @@ const (
 	EventRequestRecorded   EventType = "request.recorded"
 	EventStateChanged      EventType = "environment.state_changed"
 	EventScenarioCompleted EventType = "scenario.completed"
+	EventAppReported       EventType = "app.event"
 )
 
 type Event struct {

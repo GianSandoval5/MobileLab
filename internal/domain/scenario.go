@@ -44,6 +44,14 @@ type ScenarioStep struct {
 type ScenarioAssertion struct {
 	Request  *RequestExpectation
 	Response *ResponseExpectation
+	AppEvent *AppEventExpectation
+}
+
+type AppEventExpectation struct {
+	Framework AppFramework
+	Kind      AppEventKind
+	Name      string
+	Passed    *bool
 }
 
 type RequestExpectation struct {
@@ -87,6 +95,7 @@ type ScenarioEnvironment interface {
 	SetAuthExpired(context.Context, bool) error
 	Reset(context.Context) error
 	RecentRequests(context.Context, int) ([]RequestRecord, error)
+	RecentAppEvents(context.Context, int) ([]AppEvent, error)
 }
 
 type ScenarioRunRepository interface {
@@ -122,14 +131,40 @@ func (d ScenarioDefinition) Validate() error {
 		}
 	}
 	for index, assertion := range d.Assertions {
-		if (assertion.Request == nil) == (assertion.Response == nil) {
-			return fmt.Errorf("assertions[%d] must define exactly one request or response", index)
+		defined := 0
+		if assertion.Request != nil {
+			defined++
+		}
+		if assertion.Response != nil {
+			defined++
+		}
+		if assertion.AppEvent != nil {
+			defined++
+		}
+		if defined != 1 {
+			return fmt.Errorf("assertions[%d] must define exactly one request, response, or app_event", index)
 		}
 		if assertion.Request != nil && (assertion.Request.Method == "" || assertion.Request.Path == "") {
 			return fmt.Errorf("assertions[%d].request requires method and path", index)
 		}
 		if assertion.Response != nil && (assertion.Response.Status < 100 || assertion.Response.Status > 599) {
 			return fmt.Errorf("assertions[%d].response.status must be between 100 and 599", index)
+		}
+		if expectation := assertion.AppEvent; expectation != nil {
+			if expectation.Name == "" {
+				return fmt.Errorf("assertions[%d].app_event requires name", index)
+			}
+			switch expectation.Kind {
+			case AppEventLifecycle, AppEventMarker, AppEventAssertion:
+			default:
+				return fmt.Errorf("assertions[%d].app_event kind must be lifecycle, marker, or assertion", index)
+			}
+			if expectation.Framework != "" && expectation.Framework != FrameworkFlutter && expectation.Framework != FrameworkReactNative {
+				return fmt.Errorf("assertions[%d].app_event framework must be flutter or react-native", index)
+			}
+			if expectation.Kind != AppEventAssertion && expectation.Passed != nil {
+				return fmt.Errorf("assertions[%d].app_event passed is valid only for assertion events", index)
+			}
 		}
 	}
 	return nil

@@ -18,7 +18,7 @@ import (
 func TestPageIncludesLiveDashboardWithoutInterpolatedData(t *testing.T) {
 	response := httptest.NewRecorder()
 	(Server{}).Page(response, httptest.NewRequest(http.MethodGet, "/dashboard", nil))
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Recent requests") || !strings.Contains(response.Body.String(), "__mobilelab/events") {
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Recent requests") || !strings.Contains(response.Body.String(), "App events") || !strings.Contains(response.Body.String(), "__mobilelab/events") {
 		t.Fatalf("unexpected dashboard: %d %s", response.Code, response.Body.String())
 	}
 }
@@ -32,7 +32,8 @@ func TestEventsSendsSnapshotAndLiveEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 	runs := &memoryRuns{results: []domain.ScenarioResult{{Name: "Existing", Passed: true, StartedAt: now}}}
-	dashboard := Server{Bus: bus, Requests: requests, Runs: runs, State: func() any { return map[string]any{"latency_ms": 10} }}
+	appEvents := &memoryAppEvents{events: []domain.AppEvent{{ProtocolVersion: 1, Framework: domain.FrameworkFlutter, Kind: domain.AppEventMarker, Name: "ready", Timestamp: now}}}
+	dashboard := Server{Bus: bus, Requests: requests, Runs: runs, AppEvents: appEvents, State: func() any { return map[string]any{"latency_ms": 10} }}
 	server := httptest.NewServer(http.HandlerFunc(dashboard.Events))
 	defer server.Close()
 
@@ -75,6 +76,17 @@ type memoryRuns struct{ results []domain.ScenarioResult }
 func (m *memoryRuns) Save(_ context.Context, result domain.ScenarioResult) error {
 	m.results = append(m.results, result)
 	return nil
+}
+
+type memoryAppEvents struct{ events []domain.AppEvent }
+
+func (m *memoryAppEvents) SaveAppEvent(_ context.Context, event domain.AppEvent) error {
+	m.events = append(m.events, event)
+	return nil
+}
+
+func (m *memoryAppEvents) RecentAppEvents(context.Context, int) ([]domain.AppEvent, error) {
+	return append([]domain.AppEvent(nil), m.events...), nil
 }
 
 func (m *memoryRuns) Recent(context.Context, int) ([]domain.ScenarioResult, error) {
