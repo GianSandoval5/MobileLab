@@ -1,8 +1,37 @@
-# MobileLab
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mobilelab-wordmark-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/mobilelab-wordmark-light.svg">
+    <img alt="MobileLab" src="docs/assets/mobilelab-wordmark-light.svg" width="680">
+  </picture>
 
-MobileLab is a local-first API sandbox, device adapter layer, and portable scenario runner for mobile development. It lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable failure and device scenarios without a real backend, cloud account, Docker, or a framework SDK.
+  <p><strong>Build the mobile failure before it reaches production.</strong></p>
+  <p>A local-first API sandbox, device adapter, and portable scenario runner for mobile apps.<br>No real backend. No cloud account. No Docker. No framework lock-in.</p>
 
-> Status: **v1.0.0** stable configuration/scenario contracts, compatibility policy, safe migrations, project-local plugins, CI suites, record/replay, and optional Flutter, React Native, Android, iOS, and Capacitor integrations. See [Current limitations](#current-limitations) and the [changelog](CHANGELOG.md).
+  <p>
+    <a href="https://github.com/GianSandoval5/MobileLab/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/GianSandoval5/MobileLab?style=flat-square&color=0969da"></a>
+    <a href="https://github.com/GianSandoval5/MobileLab/actions/workflows/ci.yml"><img alt="Core CI" src="https://img.shields.io/github/actions/workflow/status/GianSandoval5/MobileLab/ci.yml?branch=master&style=flat-square&label=core%20CI"></a>
+    <a href="https://github.com/GianSandoval5/MobileLab/actions/workflows/sdk.yml"><img alt="SDK CI" src="https://img.shields.io/github/actions/workflow/status/GianSandoval5/MobileLab/sdk.yml?branch=master&style=flat-square&label=SDKs"></a>
+    <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/GianSandoval5/MobileLab?style=flat-square"></a>
+    <img alt="Go 1.23 or newer" src="https://img.shields.io/badge/Go-1.23%2B-00ADD8?style=flat-square&logo=go&logoColor=white">
+  </p>
+
+  <p>
+    <a href="#quick-start">Quick start</a> ·
+    <a href="#why-mobilelab">Why MobileLab?</a> ·
+    <a href="#scenarios">Scenarios</a> ·
+    <a href="#optional-framework-sdks">SDKs</a> ·
+    <a href="#architecture">Architecture</a> ·
+    <a href="docs/configuration.md">Docs</a>
+  </p>
+</div>
+
+---
+
+MobileLab lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable backend failures and device scenarios from one framework-neutral CLI. Version **1.0.0** provides stable configuration and scenario contracts, safe migrations, project-local plugins, CI reporting, record/replay, and optional framework integrations.
+
+> [!NOTE]
+> MobileLab is built for local development and CI. Start with the [current limitations](#current-limitations), review the [compatibility policy](docs/compatibility.md), or see exactly how the project maps to [`PRODUCT_SPEC.md`](docs/spec-coverage.md).
 
 ## Why MobileLab?
 
@@ -313,7 +342,7 @@ The executable [CI example](examples/ci/README.md) starts MobileLab with `--head
 - Automatic multi-platform `--all`, GraphQL/gRPC/SSE transports, enterprise identity providers, a remote plugin registry, and a public structured logging/`--verbose` contract are not part of 1.0.
 - SQLite retention/pruning policy is not implemented yet; schema migrations currently cover versions 1 through 3. Active recordings are process-local and are finalized by the `record` command.
 
-See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md).
 
 ## License
 

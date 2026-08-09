@@ -2,6 +2,8 @@
 
 MobileLab has stable 1.x public contracts. Start with an issue describing the mobile scenario or capability gap before making a large change.
 
+By participating, you agree to follow the project [Code of Conduct](CODE_OF_CONDUCT.md). Report conduct concerns through its confidential channel rather than a public issue.
+
 ## Development
 
 Use Go 1.23 or newer, then run:
