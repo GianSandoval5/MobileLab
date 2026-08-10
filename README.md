@@ -21,6 +21,7 @@
     <a href="#why-mobilelab">Why MobileLab?</a> ·
     <a href="#scenarios">Scenarios</a> ·
     <a href="#optional-framework-sdks">SDKs</a> ·
+    <a href="#runnable-example-applications">Examples</a> ·
     <a href="#architecture">Architecture</a> ·
     <a href="docs/configuration.md">Docs</a>
   </p>
@@ -132,9 +133,20 @@ For the standard Android Emulator, a loopback Core becomes `http://10.0.2.2:<por
 
 `start` remains in the foreground and shuts down cleanly on Ctrl+C. From another terminal, `stop` uses a token-authenticated loopback control endpoint—not arbitrary process termination. Use `start --headless` to disable the embedded dashboard.
 
+## Runnable example applications
+
+Two complete source-only shop applications exercise the same MobileLab fixtures and API contract:
+
+- [Flutter example](examples/apps/flutter/README.md), using Dart, Riverpod, and a platform-aware API URL.
+- [React Native example](examples/apps/react-native/README.md), using TypeScript, Zustand, React Navigation, and AsyncStorage.
+
+Both include `mobilelab.yaml`, fixtures, scenarios, native Android/iOS projects, and verification commands. Generated dependencies and builds are excluded, keeping the combined examples near 2 MB instead of several gigabytes. See the [example applications guide](examples/apps/README.md) for URLs and startup instructions.
+
 ## API Sandbox
 
 Endpoints are declared in strict YAML. Unknown fields and invalid methods, ports, paths, statuses, or duplicate route templates fail before startup.
+
+The `endpoints` list is MobileLab's equivalent of an API collection. Every HTTP URL has a path: opening only `http://127.0.0.1:4566` requests `GET /`, while the dashboard lives at `/dashboard`. Declare a `GET /` mock if the base URL should return content; otherwise a `no mock configured` response is expected and does not mean that Core stopped.
 
 ```yaml
 schema_version: 1
@@ -160,6 +172,8 @@ endpoints:
 ```
 
 Fixtures are loaded only from `mobilelab/fixtures`, cannot escape via `..` or symlinks, must remain valid JSON after `{{variable}}` substitution, and can be replaced by inline `body` values. Global runtime faults are temporary and do not rewrite configuration.
+
+Routes such as `/api/users/{id}` match concrete paths such as `/api/users/456`. MobileLab records path, query parameters, headers, and JSON request bodies, but configuration v1 returns the response selected by method/path; it does not yet branch on query/body/header values or inject a captured `{id}` into the response. Configuration variables are static values. OpenAPI 3 documents can generate mocks with `mobilelab api import`; direct Postman collection import is not part of 1.0.
 
 ### Local auth sandbox
 

@@ -1,0 +1,6 @@
+{
+  "purchaseId": "purchase-new",
+  "status": "paid",
+  "paymentMethod": "card",
+  "message": "Pago procesado correctamente"
+}

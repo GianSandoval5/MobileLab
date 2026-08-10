@@ -1,0 +1,8 @@
+[
+  {"id":"prod-001","name":"Audífonos Nova","description":"Audio inalámbrico con cancelación de ruido y 30 horas de batería.","price":149.9,"stock":18,"category":"Tecnología","businessId":"biz-001","businessName":"Nova Tech"},
+  {"id":"prod-002","name":"Teclado mecánico Mini","description":"Teclado compacto con iluminación y switches silenciosos.","price":219,"stock":9,"category":"Tecnología","businessId":"biz-001","businessName":"Nova Tech"},
+  {"id":"prod-003","name":"Lámpara Aura","description":"Lámpara LED regulable para escritorio o dormitorio.","price":79.9,"stock":24,"category":"Hogar","businessId":"biz-002","businessName":"Casa Viva"},
+  {"id":"prod-004","name":"Set de cocina Bambú","description":"Cinco utensilios resistentes con soporte de bambú.","price":64.5,"stock":12,"category":"Hogar","businessId":"biz-002","businessName":"Casa Viva"},
+  {"id":"prod-005","name":"Café de especialidad","description":"Café peruano de tueste medio, presentación de 500 g.","price":42,"stock":35,"category":"Alimentos","businessId":"biz-003","businessName":"Mercado Local"},
+  {"id":"prod-006","name":"Pack snacks naturales","description":"Selección de frutos secos y snacks sin azúcar añadida.","price":35.9,"stock":28,"category":"Alimentos","businessId":"biz-003","businessName":"Mercado Local"}
+]

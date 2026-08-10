@@ -1,0 +1,10 @@
+schema_version: 1
+name: Load local profile
+steps:
+  - launch_app
+expect:
+  - request:
+      method: GET
+      path: /api/profile
+  - response:
+      status: 200

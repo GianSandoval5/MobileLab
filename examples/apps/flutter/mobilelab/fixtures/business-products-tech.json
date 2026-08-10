@@ -1,0 +1,22 @@
+[
+  {
+    "id": "prod-001",
+    "name": "Audífonos Nova",
+    "description": "Audio inalámbrico con cancelación de ruido y 30 horas de batería.",
+    "price": 149.90,
+    "stock": 18,
+    "category": "Tecnología",
+    "businessId": "biz-001",
+    "businessName": "Nova Tech"
+  },
+  {
+    "id": "prod-002",
+    "name": "Teclado mecánico Mini",
+    "description": "Teclado compacto con iluminación y switches silenciosos.",
+    "price": 219.00,
+    "stock": 9,
+    "category": "Tecnología",
+    "businessId": "biz-001",
+    "businessName": "Nova Tech"
+  }
+]

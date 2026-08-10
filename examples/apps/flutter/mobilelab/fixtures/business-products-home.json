@@ -1,0 +1,22 @@
+[
+  {
+    "id": "prod-003",
+    "name": "Lámpara Aura",
+    "description": "Lámpara LED regulable para escritorio o dormitorio.",
+    "price": 79.90,
+    "stock": 24,
+    "category": "Hogar",
+    "businessId": "biz-002",
+    "businessName": "Casa Viva"
+  },
+  {
+    "id": "prod-004",
+    "name": "Set de cocina Bambú",
+    "description": "Cinco utensilios resistentes con soporte de bambú.",
+    "price": 64.50,
+    "stock": 12,
+    "category": "Hogar",
+    "businessId": "biz-002",
+    "businessName": "Casa Viva"
+  }
+]

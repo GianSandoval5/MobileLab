@@ -1,0 +1,36 @@
+[
+  {
+    "id": "purchase-001",
+    "createdAt": "2026-08-02T15:30:00.000Z",
+    "status": "Entregado",
+    "total": 191.90,
+    "items": [
+      {
+        "quantity": 1,
+        "product": {
+          "id": "prod-001",
+          "name": "Audífonos Nova",
+          "description": "Audio inalámbrico con cancelación de ruido.",
+          "price": 149.90,
+          "stock": 18,
+          "category": "Tecnología",
+          "businessId": "biz-001",
+          "businessName": "Nova Tech"
+        }
+      },
+      {
+        "quantity": 1,
+        "product": {
+          "id": "prod-005",
+          "name": "Café de especialidad",
+          "description": "Café peruano de tueste medio.",
+          "price": 42.00,
+          "stock": 35,
+          "category": "Alimentos",
+          "businessId": "biz-003",
+          "businessName": "Mercado Local"
+        }
+      }
+    ]
+  }
+]

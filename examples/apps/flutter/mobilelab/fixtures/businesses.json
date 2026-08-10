@@ -1,0 +1,23 @@
+[
+  {
+    "id": "biz-001",
+    "name": "Nova Tech",
+    "description": "Tecnología útil para trabajar, crear y disfrutar.",
+    "category": "Tecnología",
+    "rating": 4.8
+  },
+  {
+    "id": "biz-002",
+    "name": "Casa Viva",
+    "description": "Objetos funcionales para una casa más cómoda.",
+    "category": "Hogar",
+    "rating": 4.6
+  },
+  {
+    "id": "biz-003",
+    "name": "Mercado Local",
+    "description": "Productos seleccionados de productores peruanos.",
+    "category": "Alimentos",
+    "rating": 4.9
+  }
+]

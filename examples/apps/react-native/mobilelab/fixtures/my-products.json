@@ -1,0 +1,4 @@
+[
+  {"id":"prod-own-001","name":"Cuaderno artesanal","description":"Cuaderno hecho a mano con papel reciclado.","price":28,"stock":14,"category":"Papelería","businessId":"my-business","businessName":"Mi negocio"},
+  {"id":"prod-own-002","name":"Agenda semanal","description":"Agenda compacta para organizar cada semana.","price":34.9,"stock":8,"category":"Papelería","businessId":"my-business","businessName":"Mi negocio"}
+]

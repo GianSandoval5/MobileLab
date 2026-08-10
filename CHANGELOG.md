@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Professional responsive README wordmark, verified project-status badges, section navigation, and a clearer product introduction.
 - Community code of conduct covering expected behavior, confidential reporting, and proportionate enforcement.
+- Runnable Flutter and React Native shop examples with equivalent MobileLab API fixtures, scenarios, platform-aware host URLs, source-only reproducible setup, and dedicated CI validation.
 
 ### Changed
 

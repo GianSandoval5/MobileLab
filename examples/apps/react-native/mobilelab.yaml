@@ -1,0 +1,128 @@
+schema_version: 1
+project:
+    name: MiAppMobileLab
+server:
+    host: 127.0.0.1
+    port: 4566
+dashboard:
+    enabled: true
+sandbox:
+    latency: 0
+    error_rate: 0
+auth:
+    enabled: true
+device:
+    auto_detect: true
+variables:
+    userId: "123"
+push:
+    payment-success:
+        title: Pago completado
+        body: Tu compra fue procesada correctamente
+        data:
+            purchaseId: purchase-new
+endpoints:
+    - path: /
+      method: GET
+      response:
+        status: 200
+        body:
+            name: MobileLab React Native Shop API
+            version: 1.0.0
+            dashboard: /dashboard
+            example: /api/products
+    - path: /api/auth/login
+      method: POST
+      response:
+        status: 200
+        fixture: auth-login.json
+    - path: /api/auth/register
+      method: POST
+      response:
+        status: 201
+        fixture: auth-register.json
+    - path: /api/profile
+      method: GET
+      response:
+        status: 200
+        fixture: profile.json
+    - path: /api/profile
+      method: PUT
+      response:
+        status: 200
+        fixture: profile-updated.json
+    - path: /api/products
+      method: GET
+      response:
+        status: 200
+        fixture: products.json
+    - path: /api/businesses
+      method: GET
+      response:
+        status: 200
+        fixture: businesses.json
+    - path: /api/businesses/biz-001/products
+      method: GET
+      response:
+        status: 200
+        fixture: business-products-tech.json
+    - path: /api/businesses/biz-002/products
+      method: GET
+      response:
+        status: 200
+        fixture: business-products-home.json
+    - path: /api/businesses/biz-003/products
+      method: GET
+      response:
+        status: 200
+        fixture: business-products-market.json
+    - path: /api/cart/items
+      method: POST
+      response:
+        status: 201
+        fixture: cart-item.json
+    - path: /api/cart/items
+      method: PATCH
+      response:
+        status: 200
+        fixture: cart-item.json
+    - path: /api/cart/items
+      method: DELETE
+      response:
+        status: 200
+        fixture: cart-item-removed.json
+    - path: /api/payments
+      method: POST
+      response:
+        status: 201
+        fixture: payment.json
+    - path: /api/purchases
+      method: GET
+      response:
+        status: 200
+        fixture: purchases.json
+    - path: /api/my-products
+      method: GET
+      response:
+        status: 200
+        fixture: my-products.json
+    - path: /api/my-products
+      method: POST
+      response:
+        status: 201
+        fixture: product-created.json
+    - path: /api/my-products/prod-own-001
+      method: PUT
+      response:
+        status: 200
+        fixture: product-updated.json
+    - path: /api/my-products/prod-own-002
+      method: PUT
+      response:
+        status: 200
+        fixture: product-updated.json
+    - path: /api/my-products/prod-own-new
+      method: PUT
+      response:
+        status: 200
+        fixture: product-updated.json

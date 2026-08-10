@@ -1,0 +1,4 @@
+[
+  {"id":"prod-005","name":"Café de especialidad","description":"Café peruano de tueste medio, presentación de 500 g.","price":42,"stock":35,"category":"Alimentos","businessId":"biz-003","businessName":"Mercado Local"},
+  {"id":"prod-006","name":"Pack snacks naturales","description":"Selección de frutos secos y snacks sin azúcar añadida.","price":35.9,"stock":28,"category":"Alimentos","businessId":"biz-003","businessName":"Mercado Local"}
+]

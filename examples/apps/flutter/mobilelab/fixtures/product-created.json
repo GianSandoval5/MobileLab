@@ -1,0 +1,10 @@
+{
+  "id": "prod-own-new",
+  "name": "Producto nuevo",
+  "description": "Producto creado desde la aplicación.",
+  "price": 49.90,
+  "stock": 10,
+  "category": "General",
+  "businessId": "my-business",
+  "businessName": "Mi negocio"
+}
