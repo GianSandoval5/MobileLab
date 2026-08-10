@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Professional responsive README wordmark, verified project-status badges, section navigation, and a clearer product introduction.
 - Community code of conduct covering expected behavior, confidential reporting, and proportionate enforcement.
 
+### Changed
+
+- Expanded the quick start with explicit MobileLab/project path guidance, source-build and `PATH` workflows, command purpose, generated files, and shutdown behavior.
+
 ## [1.0.0] - 2026-08-09
 
 ### Added

@@ -56,21 +56,56 @@ make build
 
 ## Quick start
 
-```sh
-./bin/mobilelab doctor
+The paths below are examples—replace them with the real locations on your computer. First, enter the directory where you cloned or saved MobileLab and build the CLI:
 
-cd /path/to/your/mobile/project
-/path/to/mobilelab/bin/mobilelab init
-/path/to/mobilelab/bin/mobilelab start
+```sh
+# This is the directory where you saved the MobileLab repository.
+cd /path/where/you/saved/MobileLab
+
+make build
 ```
 
-`init` detects real project evidence (`pubspec.yaml`, React Native dependencies, Gradle/manifest files, Xcode projects, Ionic and Capacitor configuration), then creates:
+Next, enter the root directory of the mobile application you want to test. This is your Flutter, React Native, Android, iOS, Ionic, or Capacitor project—not the MobileLab repository:
+
+```sh
+# This is the directory of your own mobile application.
+cd /path/to/your/mobile/project
+
+# Run the binary from the directory where you saved MobileLab.
+/path/where/you/saved/MobileLab/bin/mobilelab init
+/path/where/you/saved/MobileLab/bin/mobilelab doctor
+/path/where/you/saved/MobileLab/bin/mobilelab start
+```
+
+For example, if MobileLab is at `/Users/you/projects/MobileLab` and your application is at `/Users/you/projects/MyApp`, those commands become:
+
+```sh
+cd /Users/you/projects/MyApp
+/Users/you/projects/MobileLab/bin/mobilelab init
+/Users/you/projects/MobileLab/bin/mobilelab doctor
+/Users/you/projects/MobileLab/bin/mobilelab start
+```
+
+Run `init` once per mobile project. It inspects the current directory for real project evidence (`pubspec.yaml`, React Native dependencies, Gradle/manifest files, Xcode projects, Ionic and Capacitor configuration), then creates:
 
 ```text
 mobilelab.yaml
 mobilelab/fixtures/
 mobilelab/mocks/
 mobilelab/scenarios/
+```
+
+After initialization, `doctor` validates the generated Core configuration and checks which local platform/framework tools are available, such as ADB, the Android Emulator, Xcode, Flutter, Node.js, Java, and Swift. It reports readiness and actionable warnings without changing your application.
+
+Run `start` from that same mobile-project directory. It reads the generated `mobilelab.yaml`, starts the local sandbox and dashboard (normally at `http://127.0.0.1:4566`), and stays in the foreground. Press Ctrl+C to stop it.
+
+If you install the binary on your `PATH`, you no longer need its full filesystem location:
+
+```sh
+cd /path/to/your/mobile/project
+mobilelab init
+mobilelab doctor
+mobilelab start
 ```
 
 With the generated environment running:
