@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'examples/apps/**'
+      - 'internal/datastore/**'
       - '.github/workflows/examples.yml'
   pull_request:
     paths:
       - 'examples/apps/**'
+      - 'internal/datastore/**'
       - '.github/workflows/examples.yml'
 
 permissions:
@@ -27,6 +29,8 @@ jobs:
         run: |
           for project in examples/apps/flutter examples/apps/react-native; do
             (cd "$project" && ../../../bin/mobilelab migrate --check)
+            (cd "$project" && ../../../bin/mobilelab db reset)
+            (cd "$project" && ../../../bin/mobilelab db status --json)
           done
 
   flutter:

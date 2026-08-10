@@ -27,6 +27,14 @@ type Handler struct {
 	events       domain.EventPublisher
 	recorder     domain.CaptureSink
 	onError      func(error)
+	dynamic      DynamicHandler
+}
+
+// DynamicHandler lets optional Core capabilities participate in the same
+// latency, fault, auth, recording, and request-history pipeline as YAML mocks.
+type DynamicHandler interface {
+	Match(method, path string) (protected bool, found bool)
+	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
 func (h *Handler) SetEventPublisher(publisher domain.EventPublisher) {
@@ -39,6 +47,10 @@ func (h *Handler) SetCaptureSink(recorder domain.CaptureSink) {
 
 func (h *Handler) SetErrorHandler(handler func(error)) {
 	h.onError = handler
+}
+
+func (h *Handler) SetDynamicHandler(handler DynamicHandler) {
+	h.dynamic = handler
 }
 
 func NewHandler(cfg config.Config, workspace string, state *RuntimeState, requests domain.RequestRepository) (*Handler, error) {
@@ -65,15 +77,19 @@ func NewHandler(cfg config.Config, workspace string, state *RuntimeState, reques
 func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	started := time.Now()
 	statusRecorder := &responseRecorder{ResponseWriter: writer, status: http.StatusOK}
-	body := h.captureBody(request)
+	body, bodyTooLarge := h.captureBody(request)
 
-	switch request.URL.Path {
-	case "/__mobilelab/auth/login":
-		h.handleLogin(statusRecorder, request)
-	case "/__mobilelab/auth/refresh":
-		h.handleRefresh(statusRecorder, request)
-	default:
-		h.handleMock(statusRecorder, request)
+	if bodyTooLarge {
+		writeJSON(statusRecorder, http.StatusRequestEntityTooLarge, map[string]any{"error": "request body exceeds 1 MiB"})
+	} else {
+		switch request.URL.Path {
+		case "/__mobilelab/auth/login":
+			h.handleLogin(statusRecorder, request)
+		case "/__mobilelab/auth/refresh":
+			h.handleRefresh(statusRecorder, request)
+		default:
+			h.handleMock(statusRecorder, request)
+		}
 	}
 
 	record := domain.RequestRecord{
@@ -107,12 +123,19 @@ func (h *Handler) reportError(err error) {
 
 func (h *Handler) handleMock(writer http.ResponseWriter, request *http.Request) {
 	endpoint, found := h.findEndpoint(request.Method, request.URL.Path)
-	if !found {
+	dynamicProtected, dynamicFound := false, false
+	if !found && h.dynamic != nil {
+		dynamicProtected, dynamicFound = h.dynamic.Match(request.Method, request.URL.Path)
+	}
+	if !found && !dynamicFound {
 		writeJSON(writer, http.StatusNotFound, map[string]any{"error": "no mock configured", "method": request.Method, "path": request.URL.Path})
 		return
 	}
 	snapshot := h.state.Snapshot()
-	delay := snapshot.LatencyMS + endpoint.DelayMS
+	delay := snapshot.LatencyMS
+	if found {
+		delay += endpoint.DelayMS
+	}
 	if delay > 0 {
 		timer := time.NewTimer(time.Duration(delay) * time.Millisecond)
 		defer timer.Stop()
@@ -130,15 +153,19 @@ func (h *Handler) handleMock(writer http.ResponseWriter, request *http.Request) 
 		writeJSON(writer, http.StatusInternalServerError, map[string]any{"error": "simulated MobileLab error"})
 		return
 	}
-	if endpoint.Error != nil {
+	if found && endpoint.Error != nil {
 		writeJSON(writer, endpoint.Error.Status, map[string]any{"error": "configured endpoint error", "status": endpoint.Error.Status})
 		return
 	}
-	if endpoint.Protected {
+	if endpoint.Protected || dynamicProtected {
 		if snapshot.AuthExpired || h.validateBearer(request) != nil {
 			writeJSON(writer, http.StatusUnauthorized, map[string]any{"error": "authentication required"})
 			return
 		}
+	}
+	if dynamicFound {
+		h.dynamic.ServeHTTP(writer, request)
+		return
 	}
 
 	for name, value := range endpoint.Response.Headers {
@@ -257,24 +284,27 @@ func (h *Handler) validateBearer(request *http.Request) error {
 	return h.tokens.validate(strings.TrimPrefix(value, "Bearer "), "access")
 }
 
-func (h *Handler) captureBody(request *http.Request) any {
+func (h *Handler) captureBody(request *http.Request) (any, bool) {
 	if request.Body == nil {
-		return nil
+		return nil, false
 	}
-	data, err := io.ReadAll(io.LimitReader(request.Body, maxCapturedBody))
+	data, err := io.ReadAll(io.LimitReader(request.Body, maxCapturedBody+1))
 	if err != nil {
-		return "[UNREADABLE]"
+		return "[UNREADABLE]", false
 	}
 	request.Body.Close()
 	request.Body = io.NopCloser(strings.NewReader(string(data)))
 	if len(data) == 0 {
-		return nil
+		return nil, false
+	}
+	if len(data) > maxCapturedBody {
+		return "[TRUNCATED REQUEST BODY]", true
 	}
 	var decoded any
 	if json.Unmarshal(data, &decoded) == nil {
-		return RedactValue(decoded)
+		return RedactValue(decoded), false
 	}
-	return "[NON-JSON BODY]"
+	return "[NON-JSON BODY]", false
 }
 
 func RedactQuery(query map[string][]string) map[string][]string {

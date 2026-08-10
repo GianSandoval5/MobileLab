@@ -1,18 +1,19 @@
 # Runnable mobile application examples
 
-These applications demonstrate that MobileLab's API sandbox is framework-neutral. Both use the same local e-commerce API contract and equivalent fixtures while keeping application state in their framework's normal client-side architecture.
+These applications demonstrate that MobileLab's API sandbox and embedded SQLite data API are framework-neutral. Both use the same local e-commerce contract, equivalent seeds, and ordinary HTTP repositories.
 
 | Example | Stack | Application directory |
 | --- | --- | --- |
 | [Flutter shop](flutter/README.md) | Flutter, Dart, Riverpod | `examples/apps/flutter` |
 | [React Native shop](react-native/README.md) | React Native CLI, TypeScript, Zustand | `examples/apps/react-native` |
 
-Each example includes its own `mobilelab.yaml`, JSON fixtures, and a profile scenario. Run only one example sandbox at a time because both intentionally use port `4566`.
+Each example includes `mobilelab.yaml` for deterministic mocks, `mobilelab/data.yaml` for persistent CRUD resources, JSON fixtures/seeds, and a profile scenario. Run only one example sandbox at a time because both intentionally use port `4566`.
 
 From either application directory:
 
 ```sh
 ../../../bin/mobilelab doctor
+../../../bin/mobilelab db reset
 ../../../bin/mobilelab start
 ```
 

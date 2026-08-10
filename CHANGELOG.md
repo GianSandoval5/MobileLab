@@ -6,8 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-10
+
 ### Added
 
+- Optional embedded SQLite business data API configured by stable `mobilelab/data.yaml` schema v1, with collection and singleton JSON resources, persistent REST CRUD, generated string IDs, deterministic status codes, and no external database installation.
+- `mobilelab db init`, `db seed`, `db reset`, and `db status [--json]` for creating, restoring, and inspecting project-local business data.
+- Non-destructive automatic startup seeding, a public embedded data JSON Schema, release packaging for that schema, dashboard data counts, and full datastore/CLI/HTTP persistence coverage.
+- Equivalent SQLite-backed Flutter and React Native shop examples whose profiles, catalogs, businesses, cart items, purchases, and owned products use ordinary HTTP repositories against `mobilelab/data.db`.
 - Professional responsive README wordmark, verified project-status badges, section navigation, and a clearer product introduction.
 - Community code of conduct covering expected behavior, confidential reporting, and proportionate enforcement.
 - Runnable Flutter and React Native shop examples with equivalent MobileLab API fixtures, scenarios, platform-aware host URLs, source-only reproducible setup, and dedicated CI validation.
@@ -15,6 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Expanded the quick start with explicit MobileLab/project path guidance, source-build and `PATH` workflows, command purpose, generated files, and shutdown behavior.
+- Routed optional data resources through the existing sandbox pipeline so latency, errors, bearer protection, redaction, request history, recording, scenarios, and realtime request events behave consistently for mocks and database endpoints.
+- Coordinated all optional framework SDK package versions at 1.1.0 without changing SDK event protocol v1.
+
+### Security
+
+- Confined size-bounded seed files beneath `mobilelab/`, including symlink traversal checks; bounded JSON request documents to 1 MiB; used parameterized SQL; and isolated business data from Core operational history.
 
 ## [1.0.0] - 2026-08-09
 
@@ -167,7 +179,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - SQLite retention/pruning and JUnit/HTML reports are not yet available.
 - OpenAPI external references, callbacks, GraphQL, gRPC, and advanced example generation are not yet supported.
 
-[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/GianSandoval5/MobileLab/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/GianSandoval5/MobileLab/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/GianSandoval5/MobileLab/compare/v0.5.0...v0.6.0

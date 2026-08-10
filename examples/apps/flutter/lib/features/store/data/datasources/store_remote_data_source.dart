@@ -38,20 +38,20 @@ class StoreRemoteDataSource {
 
   Future<void> addCartItem(Product product, int quantity) async {
     await _client.post(
-      '/api/cart/items',
+      '/api/cart/items/${product.id}',
       body: {'productId': product.id, 'quantity': quantity},
     );
   }
 
   Future<void> updateCartItem(Product product, int quantity) async {
-    await _client.patch(
+    await _client.put(
       '/api/cart/items',
       body: {'productId': product.id, 'quantity': quantity},
     );
   }
 
   Future<void> removeCartItem(String productId) async {
-    await _client.delete('/api/cart/items', body: {'productId': productId});
+    await _client.delete('/api/cart/items/$productId');
   }
 
   Future<PaymentResult> pay(List<CartItem> items, double total) async {
@@ -76,8 +76,27 @@ class StoreRemoteDataSource {
         json['message'] is! String) {
       throw const AppException('La confirmación de pago no es válida.');
     }
+    final purchase = await _client.post(
+      '/api/purchases',
+      body: {
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+        'status': 'Pagado',
+        'total': total,
+        'items': items
+            .map(
+              (item) => {
+                'quantity': item.quantity,
+                'product': ProductModel.toJson(item.product),
+              },
+            )
+            .toList(),
+      },
+    );
+    if (purchase is! Map<String, dynamic> || purchase['id'] is! String) {
+      throw const AppException('La compra guardada no es válida.');
+    }
     return PaymentResult(
-      purchaseId: json['purchaseId'] as String,
+      purchaseId: purchase['id'] as String,
       status: json['status'] as String,
       message: json['message'] as String,
     );

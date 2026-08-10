@@ -25,6 +25,8 @@ For 0.7, extensions cross an explicit out-of-process boundary instead of being l
 
 For 1.0, the YAML transport boundary is explicitly versioned. Configuration and scenario schema v1 are published as embedded JSON Schemas; parsers accept legacy unversioned documents during 1.x, reject future versions, bound input size, and require exactly one YAML document. A migration application service preflights configuration and every recursive scenario before performing comment/permission-preserving atomic replacements. Endpoint resolution is a separate application policy over configuration plus device facts, so the CLI can report host, standard Android Emulator, iOS Simulator, and physical-device reachability without leaking platform conditionals into scenarios.
 
+For 1.1, optional business data is a separate adapter boundary declared by `mobilelab/data.yaml` schema v1 and persisted in `mobilelab/data.db`. A generic JSON-document store exposes collection and singleton CRUD without allowing raw SQL. It composes beneath the existing sandbox request pipeline, so faults, authentication, redaction, capture, and realtime request events have one implementation. Static fixture endpoints retain their 1.x behavior. The business database never shares tables or migrations with Core's operational history, and automatic startup seeding is non-destructive.
+
 ## Dependency rule
 
 Dependencies point inward:
@@ -48,6 +50,7 @@ cmd/mobilelab/              executable composition root
 internal/domain/            scenario, device, request and capability models
 internal/app/               use cases and lifecycle orchestration
 internal/config/            YAML DTOs, loading, defaults and validation
+internal/datastore/         optional business-data YAML, SQLite store, and REST adapter
 internal/sandbox/           HTTP mock/auth server and runtime fault controls
 internal/scenario/          YAML parser and scenario runner adapters
 internal/device/            fake, Android and iOS DeviceAdapter implementations
@@ -63,7 +66,7 @@ examples/sdk-events/        shared sandbox and framework-neutral event scenarios
 examples/ci/                executable headless suite and provider pipeline definitions
 examples/plugins/           executable project-local plugin example
 pkg/plugin/                 public, versioned plugin authoring protocol
-schemas/                    public configuration/scenario schemas
+schemas/                    public configuration/data/scenario schemas
 examples/                   runnable samples, introduced incrementally
 docs/                       user and platform documentation
 ```
@@ -108,6 +111,8 @@ These controls reduce accidental coupling and secret inheritance, but do not cre
 ## Persistence
 
 SQLite implements the `RequestRepository` and `ScenarioRunRepository` ports in `mobilelab/mobilelab.db`. Schema migrations are transactional and versioned, WAL mode and a bounded busy timeout support concurrent dashboard/control reads, and results are returned in chronological order from a bounded recent window. The in-memory repository remains available for deterministic tests. Secrets are redacted before crossing the repository boundary. PID/control metadata is intentionally a small owner-only state file, not domain persistence.
+
+The optional business store uses a second SQLite database, `mobilelab/data.db`, with generic resource/document rows and a public declarative YAML boundary. Its JSON values are always passed as bound SQL parameters. Seed files are size-bounded and confined beneath `mobilelab/`; request documents are size-bounded JSON objects. Keeping the databases separate prevents business resets from deleting request history and allows older projects without `data.yaml` to run unchanged.
 
 Schema v2 adds `AppEventRepository`. The public SDK ingestion endpoint accepts only protocol v1 DTOs, converts them to domain events, replaces sensitive nested attributes before storage, and then publishes `app.event`. The authenticated control adapter exposes recent app events to the scenario runner; SDK clients never receive the control token.
 
@@ -156,6 +161,9 @@ Every new dependency must remove meaningful implementation risk and be actively 
 14. **Version public documents, not domain objects:** `schema_version` belongs to YAML DTOs; the scenario domain remains transport-independent while v1 schemas and compatibility checks live at adapters.
 15. **Preflight migrations before mutation:** every targeted YAML file must parse under the old compatibility rules before any file is replaced; replacements preserve permissions and use same-directory atomic rename.
 16. **Resolve endpoints from device facts:** Android Emulator host aliases and iOS Simulator loopback are explicit policy results. Physical devices and wildcard bind addresses fail with remediation instead of returning a URL that cannot work.
+17. **Separate operational and business persistence:** `mobilelab.db` is Core-owned history; optional `data.db` is user-controlled synthetic API state. They have independent schemas and lifecycles.
+18. **Declarative CRUD instead of SQL passthrough:** data resources expose bounded JSON documents over predictable REST routes. Mobile clients never receive filesystem or raw SQL access.
+19. **Non-destructive automatic seeding:** startup seeds only empty resources; explicit `db seed` upserts and explicit `db reset` is the sole destructive restore operation.
 
 ## Incremental delivery plan
 

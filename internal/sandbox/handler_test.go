@@ -68,6 +68,20 @@ func TestHandlerAppliesAndResetsForcedError(t *testing.T) {
 	}
 }
 
+func TestHandlerRejectsOversizedRequestBeforeDispatch(t *testing.T) {
+	handler, _, repository := testHandler(t, false)
+	body := strings.Repeat("x", maxCapturedBody+1)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/profile", strings.NewReader(body)))
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body returned %d: %s", response.Code, response.Body.String())
+	}
+	records, err := repository.Recent(context.Background(), 1)
+	if err != nil || len(records) != 1 || records[0].Body != "[TRUNCATED REQUEST BODY]" {
+		t.Fatalf("oversized request was not safely recorded: %#v, %v", records, err)
+	}
+}
+
 func TestHandlerMatchesOpenAPIPathParameters(t *testing.T) {
 	handler, _, _ := testHandler(t, false)
 	handler.endpoints["GET /api/users/{id}"] = config.EndpointDefinition{
@@ -142,6 +156,51 @@ func TestProtectedEndpointUsesLocalJWTAndExpiryState(t *testing.T) {
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("expired auth got %d, want 401", response.Code)
 	}
+}
+
+func TestDynamicHandlerSharesFaultAndAuthPipeline(t *testing.T) {
+	handler, state, _ := testHandler(t, false)
+	dynamic := &testDynamicHandler{}
+	handler.SetDynamicHandler(dynamic)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/data", nil))
+	if response.Code != http.StatusUnauthorized || dynamic.called {
+		t.Fatalf("protected dynamic route bypassed auth: code=%d called=%v", response.Code, dynamic.called)
+	}
+
+	login := httptest.NewRecorder()
+	handler.ServeHTTP(login, httptest.NewRequest(http.MethodPost, "/__mobilelab/auth/login", strings.NewReader(`{"username":"mobilelab","password":"mobilelab"}`)))
+	var tokens map[string]any
+	if login.Code != http.StatusOK || json.Unmarshal(login.Body.Bytes(), &tokens) != nil {
+		t.Fatalf("login failed: %d %s", login.Code, login.Body.String())
+	}
+	state.SetError(http.StatusBadGateway)
+	request := httptest.NewRequest(http.MethodGet, "/api/data", nil)
+	request.Header.Set("Authorization", "Bearer "+tokens["access_token"].(string))
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadGateway || dynamic.called {
+		t.Fatalf("dynamic route bypassed forced error: code=%d called=%v", response.Code, dynamic.called)
+	}
+
+	state.Reset()
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || !dynamic.called {
+		t.Fatalf("dynamic route was not dispatched: code=%d called=%v", response.Code, dynamic.called)
+	}
+}
+
+type testDynamicHandler struct{ called bool }
+
+func (d *testDynamicHandler) Match(_ string, path string) (bool, bool) {
+	return true, path == "/api/data"
+}
+
+func (d *testDynamicHandler) ServeHTTP(writer http.ResponseWriter, _ *http.Request) {
+	d.called = true
+	writer.WriteHeader(http.StatusNoContent)
 }
 
 func testHandler(t *testing.T, protected bool) (*Handler, *RuntimeState, *storage.MemoryRequests) {

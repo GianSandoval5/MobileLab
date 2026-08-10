@@ -4,7 +4,7 @@ import FoundationNetworking
 #endif
 
 public let mobileLabProtocolVersion = 1
-public let mobileLabKitVersion = "1.0.0"
+public let mobileLabKitVersion = "1.1.0"
 
 public enum MobileLabEventKind: String, Codable, Sendable {
     case lifecycle

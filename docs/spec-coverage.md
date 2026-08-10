@@ -1,6 +1,6 @@
 # PRODUCT_SPEC coverage
 
-This document records the honest MobileLab 1.0 coverage of `PRODUCT_SPEC.md`. “Future” means the specification itself described the item as progressive, eventual, optional, or outside the first local MVP; it is not advertised as implemented.
+This document records the honest MobileLab 1.1 coverage of `PRODUCT_SPEC.md`. “Future” means the specification itself described the item as progressive, eventual, optional, or outside the first local MVP; it is not advertised as implemented.
 
 ## Implemented
 
@@ -14,6 +14,7 @@ This document records the honest MobileLab 1.0 coverage of `PRODUCT_SPEC.md`. �
 - Sections 50–60, 62, 65: the complete mandatory v0.1 definition of done, MIT/open-source files, Make targets, dependency discipline, release packaging, documentation, and incremental validation.
 - Mobile endpoint guidance from section 43 is implemented by `mobilelab endpoint`, including the standard Android Emulator `10.0.2.2` alias, iOS Simulator loopback, JSON output, and explicit physical-device limitations.
 - MobileLab 1.0 adds stable versioned configuration/scenario contracts, embedded JSON Schemas, safe project migrations, and the compatibility policy.
+- MobileLab 1.1 adds optional embedded business-data CRUD in a separate zero-install SQLite database, a stable data schema, lifecycle commands, and full Flutter/React Native examples; it remains a synthetic development backend rather than claiming production database features.
 
 ## Partial by platform reality
 

@@ -44,8 +44,8 @@ depende de casos de uso y repositorios; no realiza peticiones HTTP directamente.
 
 ## API de MobileLab
 
-La configuración se encuentra en `mobilelab.yaml` y las respuestas en
-`mobilelab/fixtures/`.
+Los mocks deterministas se encuentran en `mobilelab.yaml`; los recursos CRUD
+persistentes se declaran en `mobilelab/data.yaml` y se inicializan con JSON.
 
 | Método | Ruta | Uso |
 | --- | --- | --- |
@@ -55,15 +55,17 @@ La configuración se encuentra en `mobilelab.yaml` y las respuestas en
 | GET | `/api/products` | Catálogo |
 | GET | `/api/businesses` | Negocios |
 | GET | `/api/businesses/{id}/products` | Productos del negocio |
-| POST, PATCH, DELETE | `/api/cart/items` | Administrar carrito |
+| POST | `/api/cart/items` | Agregar un producto al carrito |
+| PUT, DELETE | `/api/cart/items/{productId}` | Actualizar o retirar un producto |
 | POST | `/api/payments` | Procesar pago simulado |
-| GET | `/api/purchases` | Historial de compras |
+| GET, POST | `/api/purchases` | Consultar y guardar compras |
 | GET, POST | `/api/my-products` | Listar y crear productos propios |
 | PUT | `/api/my-products/{id}` | Editar un producto propio |
 
-MobileLab devuelve fixtures estáticas. La app conserva localmente los datos
-escritos durante la sesión para reflejar de inmediato cambios de carrito,
-perfil, compras y productos.
+Perfil, catálogo, negocios, carrito, compras y productos propios usan la base
+SQLite `mobilelab/data.db`; los cambios sobreviven al reinicio de MobileLab.
+Autenticación, pagos y vistas de productos por negocio conservan fixtures
+deterministas para mostrar que ambos modos pueden convivir.
 
 ## Ejecutar
 
@@ -77,11 +79,14 @@ En la primera terminal, valida la configuración incluida y levanta MobileLab:
 
 ```bash
 ../../../bin/mobilelab doctor
+../../../bin/mobilelab db reset
 ../../../bin/mobilelab start
 ```
 
 No es necesario ejecutar `mobilelab init`: este ejemplo ya incluye
-`mobilelab.yaml`, fixtures y escenarios. MobileLab permanece en primer plano;
+`mobilelab.yaml`, `mobilelab/data.yaml`, fixtures, semillas y escenarios. El
+`db reset` anterior restaura los datos de demostración; omítelo si quieres
+conservar tus cambios. MobileLab permanece en primer plano;
 usa Ctrl+C para detenerlo.
 
 En una segunda terminal ejecuta la aplicación:

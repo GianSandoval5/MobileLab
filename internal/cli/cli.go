@@ -28,7 +28,7 @@ import (
 	"github.com/mobilelab-dev/mobilelab/internal/scenario"
 )
 
-var Version = "1.0.0"
+var Version = "1.1.0"
 
 type Runner struct {
 	Out            io.Writer
@@ -89,6 +89,8 @@ func (r Runner) Run(ctx context.Context, args []string) error {
 		return r.pluginCommand(ctx, args[1:])
 	case "schema":
 		return r.schemaCommand(args[1:])
+	case "db":
+		return r.databaseCommand(ctx, args[1:])
 	case "migrate":
 		return r.migrateCommand(args[1:])
 	case "start":
@@ -1049,6 +1051,7 @@ Available commands:
   status     Show live environment and fault status
   stop       Gracefully stop the running environment
   api        Set/reset global API latency and errors
+  db         Initialize, seed, reset, and inspect the optional business database
   auth       Expire/reset the local auth session
   detect     Detect mobile frameworks and project platforms
   endpoint   Print the reachable Core URL for host, emulator, or simulator
@@ -1064,7 +1067,7 @@ Available commands:
   record     Capture app traffic/actions into a portable YAML scenario
   replay     Execute a recorded scenario through the standard runner
   plugin     List, inspect, and explicitly run project-local plugins
-  schema     Print stable configuration or scenario JSON Schema
+  schema     Print stable configuration, data, or scenario JSON Schema
   migrate    Upgrade project YAML documents to stable schema versions
   version    Print the MobileLab version
   help       Show this help`)

@@ -62,11 +62,14 @@ En la primera terminal, valida la configuración incluida y levanta MobileLab:
 
 ```bash
 ../../../bin/mobilelab doctor
+../../../bin/mobilelab db reset
 ../../../bin/mobilelab start
 ```
 
 No es necesario ejecutar `mobilelab init`: este ejemplo ya incluye
-`mobilelab.yaml`, fixtures y escenarios. MobileLab permanece en primer plano;
+`mobilelab.yaml`, `mobilelab/data.yaml`, fixtures, semillas y escenarios. El
+`db reset` anterior restaura la demostración; omítelo para conservar cambios.
+MobileLab permanece en primer plano;
 usa Ctrl+C para detenerlo.
 
 En una segunda terminal inicia Metro:
@@ -116,10 +119,11 @@ declarada en `mobilelab.yaml`; no indica que MobileLab se haya detenido.
 
 ## MobileLab
 
-Los endpoints se encuentran en `mobilelab.yaml` y sus respuestas en
-`mobilelab/fixtures/`. Las respuestas son estáticas, pero la app fusiona las
-fixtures con los cambios persistidos en AsyncStorage. Estos datos sobreviven a
-recargas y reinicios en el mismo dispositivo; no se sincronizan entre equipos.
+Los mocks de autenticación, pagos y catálogos por negocio se encuentran en
+`mobilelab.yaml`. Perfil, catálogo, negocios, carrito, compras y productos
+propios están declarados en `mobilelab/data.yaml` y persisten en la base SQLite
+ignorada `mobilelab/data.db`. AsyncStorage sigue conservando el estado de UI y
+sesión del dispositivo, mientras MobileLab mantiene el estado del API.
 
 ## Verificar
 

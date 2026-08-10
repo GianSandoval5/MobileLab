@@ -18,6 +18,7 @@ import (
 
 	"github.com/mobilelab-dev/mobilelab/internal/config"
 	"github.com/mobilelab-dev/mobilelab/internal/dashboard"
+	"github.com/mobilelab-dev/mobilelab/internal/datastore"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	eventbus "github.com/mobilelab-dev/mobilelab/internal/events"
 	"github.com/mobilelab-dev/mobilelab/internal/recording"
@@ -34,6 +35,8 @@ type Environment struct {
 	requests   domain.RequestRepository
 	runs       domain.ScenarioRunRepository
 	appEvents  domain.AppEventRepository
+	data       *datastore.Store
+	dataConfig *datastore.Config
 	events     *eventbus.Bus
 	recorder   *recording.Service
 	startedAt  time.Time
@@ -58,7 +61,8 @@ func (e *Environment) SetHeadless(headless bool) {
 }
 
 func (e *Environment) Run(ctx context.Context) error {
-	databasePath := filepath.Join(e.config.Workspace(e.configPath), "mobilelab.db")
+	workspace := e.config.Workspace(e.configPath)
+	databasePath := filepath.Join(workspace, "mobilelab.db")
 	store, err := storage.OpenSQLite(databasePath)
 	if err != nil {
 		return fmt.Errorf("open MobileLab persistence: %w", err)
@@ -69,13 +73,40 @@ func (e *Environment) Run(ctx context.Context) error {
 	e.runs = store.ScenarioRuns()
 	e.appEvents = store
 
-	handler, err := sandbox.NewHandler(e.config, e.config.Workspace(e.configPath), e.state, e.requests)
+	dataConfig, configured, err := datastore.LoadOptional(filepath.Dir(e.configPath))
+	if err != nil {
+		return fmt.Errorf("load business data API: %w", err)
+	}
+	if configured {
+		if err := dataConfig.ValidateEndpoints(e.config.Endpoints); err != nil {
+			return fmt.Errorf("validate business data API: %w", err)
+		}
+		dataStore, openErr := datastore.Open(datastore.DatabasePath(filepath.Dir(e.configPath)))
+		if openErr != nil {
+			return fmt.Errorf("open business data API: %w", openErr)
+		}
+		defer dataStore.Close()
+		if seedErr := dataStore.Seed(ctx, dataConfig, workspace, datastore.SeedEmpty); seedErr != nil {
+			return fmt.Errorf("initialize business data API: %w", seedErr)
+		}
+		e.data = dataStore
+		e.dataConfig = &dataConfig
+	}
+
+	handler, err := sandbox.NewHandler(e.config, workspace, e.state, e.requests)
 	if err != nil {
 		return fmt.Errorf("create API sandbox: %w", err)
 	}
 	handler.SetEventPublisher(e.events)
 	handler.SetCaptureSink(e.recorder)
 	handler.SetErrorHandler(func(err error) { fmt.Fprintf(e.out, "! %v\n", err) })
+	if configured {
+		dataHandler, dataErr := datastore.NewHandler(dataConfig, e.data)
+		if dataErr != nil {
+			return fmt.Errorf("create business data API: %w", dataErr)
+		}
+		handler.SetDynamicHandler(dataHandler)
+	}
 	listener, err := net.Listen("tcp", e.config.Address())
 	if err != nil {
 		return fmt.Errorf("unable to start MobileLab: address %s is unavailable: %w", e.config.Address(), err)
@@ -101,6 +132,15 @@ func (e *Environment) Run(ctx context.Context) error {
 	mux.Handle("/__mobilelab/sdk/events", sdkbridge.Handler{Repository: e.appEvents, Events: e.events})
 	if e.config.Dashboard.Enabled {
 		dashboardServer := dashboard.Server{Bus: e.events, Requests: e.requests, Runs: e.runs, AppEvents: e.appEvents, State: func() any { return e.state.Snapshot() }}
+		if e.data != nil && e.dataConfig != nil {
+			dashboardServer.Data = func(ctx context.Context) any {
+				counts, countErr := e.data.Counts(ctx, *e.dataConfig)
+				if countErr != nil {
+					return map[string]any{"error": "unavailable"}
+				}
+				return map[string]any{"resources": counts}
+			}
+		}
 		mux.Handle("/dashboard", loopbackOnly(http.HandlerFunc(dashboardServer.Page)))
 		mux.Handle("/__mobilelab/events", loopbackOnly(http.HandlerFunc(dashboardServer.Events)))
 	}
@@ -112,6 +152,13 @@ func (e *Environment) Run(ctx context.Context) error {
 	}()
 
 	fmt.Fprintf(e.out, "MobileLab environment ready\n✓ API Sandbox  http://%s\n", listener.Addr())
+	if configured {
+		counts, countErr := e.data.Counts(ctx, dataConfig)
+		if countErr != nil {
+			return fmt.Errorf("inspect business data API: %w", countErr)
+		}
+		fmt.Fprintf(e.out, "✓ Data API     %d resources · %d documents · mobilelab/%s\n", len(counts), totalDocuments(counts), datastore.DatabaseFilename)
+	}
 	if e.config.Server.Host != "localhost" {
 		if ip := net.ParseIP(e.config.Server.Host); ip != nil && !ip.IsLoopback() {
 			fmt.Fprintln(e.out, "! Warning: MobileLab is exposed beyond loopback. Use only on a trusted development network.")
@@ -136,6 +183,14 @@ func (e *Environment) Run(ctx context.Context) error {
 	}
 	fmt.Fprintln(e.out, "MobileLab stopped.")
 	return nil
+}
+
+func totalDocuments(counts map[string]int) int {
+	total := 0
+	for _, count := range counts {
+		total += count
+	}
+	return total
 }
 
 func (e *Environment) controlHandler(token string) http.Handler {

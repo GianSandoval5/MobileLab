@@ -12,6 +12,7 @@ func TestStableSchemasAreEmbeddedAndVersioned(t *testing.T) {
 		version int
 	}{
 		{kind: Config, version: ConfigVersion},
+		{kind: Data, version: DataVersion},
 		{kind: Scenario, version: ScenarioVersion},
 	} {
 		data, err := Read(test.kind)

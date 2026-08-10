@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/mobilelab-dev/mobilelab/internal/config"
+	"github.com/mobilelab-dev/mobilelab/internal/datastore"
 	"github.com/mobilelab-dev/mobilelab/internal/domain"
 	"github.com/mobilelab-dev/mobilelab/internal/storage"
 )
@@ -30,6 +32,15 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "mobilelab", "fixtures", "profile.json"), []byte(`{"id":"123"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "mobilelab", "seeds"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "mobilelab", "seeds", "items.json"), []byte(`[{"id":"seeded","name":"Seeded"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "mobilelab", "data.yaml"), []byte("schema_version: 1\nresources:\n  items:\n    path: /api/items\n    id: id\n    seed: seeds/items.json\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := config.Write(configPath, cfg); err != nil {
@@ -56,7 +67,7 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer connection.CloseNow()
-	if event := readRuntimeEvent(t, connection); event.Type != domain.EventSnapshot {
+	if event := readRuntimeEvent(t, connection); event.Type != domain.EventSnapshot || !strings.Contains(fmt.Sprint(event.Payload), "items") {
 		t.Fatalf("dashboard did not send initial snapshot: %#v", event)
 	}
 	sdkBody := strings.NewReader(`{"protocolVersion":1,"framework":"flutter","kind":"lifecycle","name":"ready","attributes":{"token":"secret"}}`)
@@ -89,8 +100,27 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 	if event := readRuntimeEvent(t, connection); event.Type != domain.EventRequestRecorded {
 		t.Fatalf("dashboard did not receive request event: %#v", event)
 	}
+	created, err := http.Post("http://"+cfg.Address()+"/api/items", "application/json", strings.NewReader(`{"id":"persisted","name":"Created"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("database create returned %d", created.StatusCode)
+	}
+	created.Body.Close()
+	if event := readRuntimeEvent(t, connection); event.Type != domain.EventRequestRecorded {
+		t.Fatalf("database create did not publish request: %#v", event)
+	}
+	databaseResponse := get(t, "http://"+cfg.Address()+"/api/items/persisted")
+	if databaseResponse.StatusCode != http.StatusOK {
+		t.Fatalf("database read returned %d", databaseResponse.StatusCode)
+	}
+	databaseResponse.Body.Close()
+	if event := readRuntimeEvent(t, connection); event.Type != domain.EventRequestRecorded {
+		t.Fatalf("database read did not publish request: %#v", event)
+	}
 	recent, err := (Client{ConfigPath: configPath}).RecentRequests(context.Background(), 10)
-	if err != nil || len(recent) != 1 || recent[0].Path != "/api/profile" {
+	if err != nil || len(recent) != 3 || recent[0].Path != "/api/profile" || recent[1].Path != "/api/items" || recent[2].Path != "/api/items/persisted" {
 		t.Fatalf("runtime request observation failed: %#v, %v", recent, err)
 	}
 	client := Client{ConfigPath: configPath}
@@ -183,6 +213,15 @@ func TestEnvironmentLifecycleAndRuntimeFaults(t *testing.T) {
 	persistedAppEvents, err := store.RecentAppEvents(context.Background(), 10)
 	if err != nil || len(persistedAppEvents) != 1 || persistedAppEvents[0].Name != "ready" {
 		t.Fatalf("app event history did not survive restart: %#v, %v", persistedAppEvents, err)
+	}
+	dataStore, err := datastore.Open(datastore.DatabasePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dataStore.Close()
+	document, found, err := dataStore.Get(context.Background(), "items", "persisted")
+	if err != nil || !found || document["name"] != "Created" {
+		t.Fatalf("business document did not survive shutdown: %#v, %v", document, err)
 	}
 }
 

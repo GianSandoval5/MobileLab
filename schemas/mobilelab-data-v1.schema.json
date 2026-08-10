@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobilelab.dev/schemas/mobilelab-data-v1.schema.json",
+  "title": "MobileLab business data configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "resources"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "resources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^/(?!$)(?!.*[/?#{}\\s]$)[^?#{}\\s]+$" },
+          "id": { "type": "string", "default": "id", "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$" },
+          "singleton": { "type": "boolean", "default": false },
+          "seed": { "type": "string", "minLength": 1 },
+          "protected": { "type": "boolean", "default": false }
+        }
+      }
+    }
+  }
+}

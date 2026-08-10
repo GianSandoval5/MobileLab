@@ -2,7 +2,7 @@
 
 Optional Swift hooks for native iOS applications using MobileLab protocol v1. The API Sandbox works without this package; add it only for lifecycle events, markers, and scenario assertions.
 
-Extract `mobilelab-kit-1.0.0.tar.gz` from the v1.0 GitHub Release and add that directory as a local Swift Package, then configure a URL reachable by the Simulator or device:
+Extract `mobilelab-kit-1.1.0.tar.gz` from the v1.1 GitHub Release and add that directory as a local Swift Package, then configure a URL reachable by the Simulator or device:
 
 ```swift
 let client = try MobileLabClient(endpoint: URL(string: "http://127.0.0.1:4566")!)

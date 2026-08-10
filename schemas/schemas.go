@@ -11,6 +11,7 @@ import (
 const (
 	ConfigVersion   = 1
 	ScenarioVersion = 1
+	DataVersion     = 1
 	MaxYAMLBytes    = 1 << 20
 )
 
@@ -19,6 +20,7 @@ type Kind string
 const (
 	Config   Kind = "config"
 	Scenario Kind = "scenario"
+	Data     Kind = "data"
 )
 
 //go:embed *.schema.json
@@ -31,6 +33,8 @@ func Read(kind Kind) ([]byte, error) {
 		name = "mobilelab-config-v1.schema.json"
 	case Scenario:
 		name = "mobilelab-scenario-v1.schema.json"
+	case Data:
+		name = "mobilelab-data-v1.schema.json"
 	default:
 		return nil, fmt.Errorf("unknown MobileLab schema %q", kind)
 	}

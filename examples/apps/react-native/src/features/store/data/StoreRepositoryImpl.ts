@@ -31,18 +31,18 @@ export class StoreRepositoryImpl implements StoreRepository {
   }
 
   async updateCartItem(product: Product, quantity: number) {
-    await this.client.patch('/api/cart/items', {
+    await this.client.put(`/api/cart/items/${product.id}`, {
       productId: product.id,
       quantity,
     });
   }
 
   async removeCartItem(productId: string) {
-    await this.client.delete('/api/cart/items', { productId });
+    await this.client.delete(`/api/cart/items/${productId}`);
   }
 
-  pay(items: CartItem[], total: number) {
-    return this.client.post<PaymentResult>('/api/payments', {
+  async pay(items: CartItem[], total: number) {
+    const payment = await this.client.post<PaymentResult>('/api/payments', {
       paymentMethod: 'card',
       total,
       items: items.map(item => ({
@@ -50,6 +50,13 @@ export class StoreRepositoryImpl implements StoreRepository {
         quantity: item.quantity,
       })),
     });
+    const purchase = await this.client.post<Purchase>('/api/purchases', {
+      createdAt: new Date().toISOString(),
+      status: 'Pagado',
+      total,
+      items,
+    });
+    return { ...payment, purchaseId: purchase.id };
   }
 
   getPurchases() {

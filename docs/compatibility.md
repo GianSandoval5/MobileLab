@@ -1,6 +1,6 @@
 # MobileLab compatibility policy
 
-MobileLab 1.0 follows Semantic Versioning for the Core CLI, public YAML contracts, the Go plugin authoring package, and coordinated framework SDK packages.
+MobileLab 1.x follows Semantic Versioning for the Core CLI, public YAML contracts, the Go plugin authoring package, and coordinated framework SDK packages.
 
 ## Stable contracts
 
@@ -8,10 +8,11 @@ The following interfaces are stable throughout the MobileLab 1.x line:
 
 - configuration documents with `schema_version: 1`;
 - scenario documents with `schema_version: 1`;
+- business data documents with `schema_version: 1`;
 - SDK event protocol v1;
 - `mobilelab.plugin/v1` and the public `pkg/plugin` Go package;
 - documented CLI commands, flags, exit status behavior, and JSON field meanings;
-- the two JSON Schemas in `schemas/` and printed by `mobilelab schema`.
+- the configuration, data, and scenario JSON Schemas in `schemas/` and printed by `mobilelab schema`.
 
 A valid v1 configuration or scenario remains valid in later 1.x releases. Existing required fields will not change meaning, and existing enum values will not be removed. New optional capabilities may be added in a minor release; documents using them naturally require a Core version that implements them. Human-readable CLI spacing is not a machine contract. Scripts should prefer `--json` where offered; JSON additions are compatible, while existing fields retain their types and meanings during 1.x.
 
@@ -32,7 +33,9 @@ The check performs no writes and returns non-zero when a project needs migration
 
 ## SQLite
 
-SQLite migrations are ordered, transactional, and forward-only. Core automatically upgrades older supported databases. An older Core refuses a database created by a newer unsupported schema version. Downgrades are not automatic; keep project backups when testing prerelease builds.
+Operational SQLite migrations in `mobilelab/mobilelab.db` are ordered, transactional, and forward-only. Core automatically upgrades older supported databases. An older Core refuses a database created by a newer unsupported schema version. Downgrades are not automatic; keep project backups when testing prerelease builds.
+
+MobileLab 1.1 adds the separate optional `mobilelab/data.db` business-document store. Its declarative `data.yaml` schema v1 and documented REST meanings remain compatible during 1.x. `db reset` is explicitly destructive only to business documents; it never resets operational history.
 
 ## Plugins and SDKs
 

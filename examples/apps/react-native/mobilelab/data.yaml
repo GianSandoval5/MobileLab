@@ -1,0 +1,26 @@
+schema_version: 1
+resources:
+  profile:
+    path: /api/profile
+    singleton: true
+    seed: seeds/profile.json
+  products:
+    path: /api/products
+    id: id
+    seed: fixtures/products.json
+  businesses:
+    path: /api/businesses
+    id: id
+    seed: fixtures/businesses.json
+  cart-items:
+    path: /api/cart/items
+    id: productId
+    seed: seeds/cart-items.json
+  purchases:
+    path: /api/purchases
+    id: id
+    seed: fixtures/purchases.json
+  my-products:
+    path: /api/my-products
+    id: id
+    seed: fixtures/my-products.json

@@ -45,7 +45,7 @@ func TestUnknownCommandIsActionable(t *testing.T) {
 }
 
 func TestSchemaCommandPrintsEmbeddedStableContracts(t *testing.T) {
-	for _, kind := range []schemas.Kind{schemas.Config, schemas.Scenario} {
+	for _, kind := range []schemas.Kind{schemas.Config, schemas.Data, schemas.Scenario} {
 		var output bytes.Buffer
 		runner := New(&output, &bytes.Buffer{}, t.TempDir())
 		if err := runner.Run(context.Background(), []string{"schema", string(kind)}); err != nil {
@@ -58,6 +58,47 @@ func TestSchemaCommandPrintsEmbeddedStableContracts(t *testing.T) {
 		if document["$schema"] == nil || document["$id"] == nil {
 			t.Fatalf("%s schema output is incomplete: %#v", kind, document)
 		}
+	}
+}
+
+func TestDatabaseCommandsInitializeSeedResetAndReportJSON(t *testing.T) {
+	root := t.TempDir()
+	if err := config.Write(filepath.Join(root, config.DefaultFilename), config.Default("database-cli")); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	runner := New(&output, &bytes.Buffer{}, root)
+	if err := runner.Run(context.Background(), []string{"db", "init"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		filepath.Join(root, "mobilelab", "data.yaml"),
+		filepath.Join(root, "mobilelab", "data.db"),
+		filepath.Join(root, "mobilelab", "seeds", "items.json"),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("database init did not create %s: %v", path, err)
+		}
+	}
+	output.Reset()
+	if err := runner.Run(context.Background(), []string{"db", "status", "--json"}); err != nil {
+		t.Fatal(err)
+	}
+	var status struct {
+		SchemaVersion int            `json:"schema_version"`
+		Resources     map[string]int `json:"resources"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &status); err != nil {
+		t.Fatalf("invalid status JSON: %v\n%s", err, output.String())
+	}
+	if status.SchemaVersion != 1 || status.Resources["items"] != 0 {
+		t.Fatalf("unexpected database status: %#v", status)
+	}
+	if err := runner.Run(context.Background(), []string{"db", "seed"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.Run(context.Background(), []string{"db", "reset"}); err != nil {
+		t.Fatal(err)
 	}
 }
 

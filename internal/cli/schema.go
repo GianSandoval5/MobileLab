@@ -7,8 +7,8 @@ import (
 )
 
 func (r Runner) schemaCommand(args []string) error {
-	if len(args) != 1 || (args[0] != string(schemas.Config) && args[0] != string(schemas.Scenario)) {
-		return fmt.Errorf("usage: mobilelab schema config | scenario")
+	if len(args) != 1 || (args[0] != string(schemas.Config) && args[0] != string(schemas.Data) && args[0] != string(schemas.Scenario)) {
+		return fmt.Errorf("usage: mobilelab schema config | data | scenario")
 	}
 	data, err := schemas.Read(schemas.Kind(args[0]))
 	if err != nil {

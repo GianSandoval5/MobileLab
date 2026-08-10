@@ -14,6 +14,8 @@ MobileLab is a development tool and binds to `127.0.0.1` by default. Its local a
 
 The SDK event endpoint is intentionally reachable by the application under test and therefore does not receive the private CLI control token. It accepts only a strict versioned schema with a 64 KiB request limit. If a physical device needs access, bind MobileLab only on a trusted development network and remove debug cleartext/local-network exceptions from production application configurations.
 
+The optional business data API stores synthetic JSON documents separately in `mobilelab/data.db`. Request bodies and seed files are limited to 1 MiB, seed paths are confined beneath `mobilelab/` including symlink resolution, and SQLite statements bind document values as parameters. A resource marked `protected` uses the development-only local JWT sandbox; it is not production access control. Do not import production databases, personal information, credentials, or real customer data. `mobilelab db reset` deliberately deletes only business documents before restoring declared seeds.
+
 ## Plugin trust model
 
 Plugins are trusted project-local executables and run only after an explicit `mobilelab plugin run`. Discovery and inspection parse manifests, confine resolved executable paths to the plugin directory, and compute a SHA-256 fingerprint without executing code. Invocation uses no shell, passes a minimal environment rather than arbitrary parent variables, enforces a deadline, limits each protocol message to 1 MiB, and requires a correlated strict `mobilelab.plugin/v1` response.

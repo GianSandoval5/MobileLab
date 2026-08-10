@@ -19,6 +19,7 @@
   <p>
     <a href="#quick-start">Quick start</a> ·
     <a href="#why-mobilelab">Why MobileLab?</a> ·
+    <a href="#embedded-business-data-api">Data API</a> ·
     <a href="#scenarios">Scenarios</a> ·
     <a href="#optional-framework-sdks">SDKs</a> ·
     <a href="#runnable-example-applications">Examples</a> ·
@@ -29,7 +30,7 @@
 
 ---
 
-MobileLab lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable backend failures and device scenarios from one framework-neutral CLI. Version **1.0.0** provides stable configuration and scenario contracts, safe migrations, project-local plugins, CI reporting, record/replay, and optional framework integrations.
+MobileLab lets Flutter, React Native, Android, iOS, and Capacitor applications exercise repeatable backend failures and device scenarios from one framework-neutral CLI. Version **1.1.0** adds an optional zero-install SQLite business data API alongside stable configuration and scenario contracts, safe migrations, project-local plugins, CI reporting, record/replay, and optional framework integrations.
 
 > [!NOTE]
 > MobileLab is built for local development and CI. Start with the [current limitations](#current-limitations), review the [compatibility policy](docs/compatibility.md), or see exactly how the project maps to [`PRODUCT_SPEC.md`](docs/spec-coverage.md).
@@ -142,6 +143,35 @@ Two complete source-only shop applications exercise the same MobileLab fixtures 
 
 Both include `mobilelab.yaml`, fixtures, scenarios, native Android/iOS projects, and verification commands. Generated dependencies and builds are excluded, keeping the combined examples near 2 MB instead of several gigabytes. See the [example applications guide](examples/apps/README.md) for URLs and startup instructions.
 
+## Embedded business data API
+
+Fixture mocks are ideal for deterministic responses. When an application needs real create, read, update, and delete behavior across restarts, add the optional embedded SQLite data API:
+
+```sh
+cd /path/to/your/mobile/project
+mobilelab db init
+mobilelab start
+```
+
+`db init` creates `mobilelab/data.yaml`, a starter seed, and the ignored `mobilelab/data.db`. No SQLite application, database server, Docker container, account, or mobile SDK is required. Declare collection and singleton resources:
+
+```yaml
+schema_version: 1
+resources:
+  products:
+    path: /api/products
+    id: id
+    seed: seeds/products.json
+  profile:
+    path: /api/profile
+    singleton: true
+    seed: seeds/profile.json
+```
+
+Collections automatically receive `GET/POST /api/products` and `GET/PUT/PATCH/DELETE /api/products/{id}`. Singletons receive `GET/PUT/PATCH /api/profile`. Existing data survives `start`; use `mobilelab db seed` to upsert seeds, `mobilelab db reset` to deliberately restore them, and `mobilelab db status [--json]` to inspect counts.
+
+The data API and static `endpoints` can coexist. Database requests still receive configured latency/faults/auth protection and appear in history, recordings, scenarios, and the dashboard. Business documents live in `mobilelab/data.db`; MobileLab's internal request/event database remains separately isolated at `mobilelab/mobilelab.db`. See the complete [embedded data API guide](docs/data-api.md) and print its stable contract with `mobilelab schema data`.
+
 ## API Sandbox
 
 Endpoints are declared in strict YAML. Unknown fields and invalid methods, ports, paths, statuses, or duplicate route templates fail before startup.
@@ -211,6 +241,7 @@ MobileLab 1.x stabilizes configuration and scenario schema v1. Newly initialized
 mobilelab migrate --check
 mobilelab migrate
 mobilelab schema config > mobilelab-config-v1.schema.json
+mobilelab schema data > mobilelab-data-v1.schema.json
 mobilelab schema scenario > mobilelab-scenario-v1.schema.json
 ```
 
@@ -388,7 +419,8 @@ The executable [CI example](examples/ci/README.md) starts MobileLab with `--head
 - OpenAPI import does not yet support external references, callbacks, GraphQL, gRPC, or sophisticated example generation.
 - All framework integrations are optional observability SDKs; they are not required for the API Sandbox.
 - Plugins are manually installed, trusted project-local executables in 1.0. MobileLab limits their invocation but does not provide an OS sandbox, registry, signature verification, dependency resolution, or automatic updates.
-- Automatic multi-platform `--all`, GraphQL/gRPC/SSE transports, enterprise identity providers, a remote plugin registry, and a public structured logging/`--verbose` contract are not part of 1.0.
+- The embedded data API intentionally provides JSON document CRUD, not SQL passthrough, joins, relational migrations, query filtering, GraphQL, or a production database server.
+- Automatic multi-platform `--all`, GraphQL/gRPC/SSE transports, enterprise identity providers, a remote plugin registry, and a public structured logging/`--verbose` contract are not part of 1.1.
 - SQLite retention/pruning policy is not implemented yet; schema migrations currently cover versions 1 through 3. Active recordings are process-local and are finalized by the `record` command.
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones. Contributions are welcome; read the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md).

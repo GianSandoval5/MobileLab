@@ -1,3 +1,7 @@
+## 1.1.0
+
+- Coordinated package version with MobileLab 1.1.0; SDK event protocol v1 is unchanged.
+
 ## 1.0.0
 
 - First stable coordinated package release; SDK event protocol v1 remains unchanged.

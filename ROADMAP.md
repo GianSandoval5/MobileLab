@@ -87,3 +87,11 @@ First-party Firebase, Supabase, GraphQL, or gRPC integrations remain candidates 
 - [x] device-aware `mobilelab endpoint` with honest emulator/simulator/physical-device behavior
 - [x] complete contract documentation and honest `PRODUCT_SPEC.md` coverage audit
 - [x] production cross-platform binaries, coordinated SDK packages, schema assets, and checksums
+
+## 1.1 — Embedded business data
+
+- [x] separate zero-install SQLite JSON document store for synthetic business data
+- [x] stable `mobilelab/data.yaml` schema v1 with collection and singleton resources
+- [x] generated persistent REST CRUD integrated with sandbox faults, auth, history, recording, and scenarios
+- [x] explicit init/seed/reset/status lifecycle commands and non-destructive startup seeding
+- [x] SQLite-backed Flutter and React Native shop examples with source-only CI validation
